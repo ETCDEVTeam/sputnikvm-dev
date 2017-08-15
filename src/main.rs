@@ -18,7 +18,8 @@ use secp256k1::key::{PublicKey, SecretKey};
 use std::time::Duration;
 use std::thread;
 use std::str::FromStr;
-use sputnikvm::vm::{self, ValidTransaction, Patch};
+use sputnikvm::vm::{self, ValidTransaction, Patch, AccountCommitment, AccountState};
+use sputnikvm::vm::errors::RequireError;
 use rand::os::OsRng;
 use sha3::{Digest, Keccak256};
 
@@ -37,9 +38,78 @@ fn next<'a>(
 }
 
 fn to_valid<'a>(
+    database: &MemoryDatabase,
     signed: Transaction, patch: &'static Patch, state: &Trie<MemoryDatabaseGuard<'a>>
 ) -> ValidTransaction {
-    unimplemented!()
+    let mut account_state = AccountState::default();
+
+    loop {
+        match ValidTransaction::from_transaction(&signed, &account_state, patch) {
+            Ok(val) => return val.unwrap(),
+            Err(RequireError::Account(address)) => {
+                let account = state.get(address.as_ref());
+
+                match account {
+                    Some(val) => {
+                        let account: Account = rlp::decode(val.as_ref());
+                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+
+                        account_state.commit(AccountCommitment::Full {
+                            nonce: account.nonce,
+                            address: address,
+                            balance: account.balance,
+                            code: code,
+                        });
+                    },
+                    None => {
+                        account_state.commit(AccountCommitment::Nonexist(address));
+                    },
+                }
+            },
+            Err(RequireError::AccountCode(address)) => {
+                let account = state.get(address.as_ref());
+
+                match account {
+                    Some(val) => {
+                        let account: Account = rlp::decode(val.as_ref());
+                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+
+                        account_state.commit(AccountCommitment::Code {
+                            address: address,
+                            code: code,
+                        });
+                    },
+                    None => {
+                        account_state.commit(AccountCommitment::Nonexist(address));
+                    },
+                }
+            },
+            Err(RequireError::AccountStorage(address, index)) => {
+                let account = state.get(address.as_ref());
+
+                match account {
+                    Some(val) => {
+                        let account: Account = rlp::decode(val.as_ref());
+                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+
+                        let storage = database.create_trie(account.storage_root);
+                        let value = storage.get(rlp::encode(&index).to_vec().as_ref()).map(|v| rlp::decode::<M256>(v.as_ref())).unwrap_or(M256::zero());
+
+                        account_state.commit(AccountCommitment::Storage {
+                            address: address,
+                            index, value
+                        });
+                    },
+                    None => {
+                        account_state.commit(AccountCommitment::Nonexist(address));
+                    },
+                }
+            },
+            Err(RequireError::Blockhash(number)) => {
+                panic!()
+            },
+        }
+    }
 }
 
 fn main() {
@@ -101,7 +171,7 @@ fn main() {
         let mut receipts = Vec::new();
 
         for transaction in transactions.clone() {
-            let valid = to_valid(transaction, patch, &state);
+            let valid = to_valid(&database, transaction, patch, &state);
             let receipt = transit(&current_block, valid, patch, &mut state);
             receipts.push(receipt);
         }
