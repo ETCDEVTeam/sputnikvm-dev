@@ -11,7 +11,7 @@ dependencies = [
  "rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "secp256k1-plus 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha3 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sputnikvm 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sputnikvm 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -296,7 +296,7 @@ dependencies = [
 
 [[package]]
 name = "sputnikvm"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "digest 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -362,7 +362,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum secp256k1-plus 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)" = "7222a0da4de37d12aa9d018c563f2916b40c3c5030292b9becde5825d86bf3e2"
 "checksum sha2 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7d963c78ce367df26d7ea8b8cc655c651b42e8a1e584e869c1e17dae3ccb116a"
 "checksum sha3 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "26405905b6a56a94c60109cfda62610507ac14a65be531f5767dec5c5a8dd6a0"
-"checksum sputnikvm 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a7c443cea2ceece799b396eaf52e634ec361b646891a4695260d217bab1437e3"
+"checksum sputnikvm 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bc64e60712f76b1cb699976f77c6b25ebcfab05e4a97b6180fb8f06afa9da8e0"
 "checksum typenum 1.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "13a99dc6780ef33c78780b826cf9d2a78840b72cae9474de4bcaf9051e60ebbd"
 "checksum winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "167dc9d6949a9b857f3451275e911c3f44255842c1f7a76f33c55103a909087a"
 "checksum winapi-build 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2d315eee3b34aca4797b2da6b13ed88266e6d612562a0c46390af8299fc699bc"
