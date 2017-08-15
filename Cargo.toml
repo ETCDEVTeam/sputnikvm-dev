@@ -1,0 +1,9 @@
+[package]
+name = "etestrpc"
+version = "0.1.0"
+license = "Apache-2.0"
+authors = ["Wei Tang <hi@that.world>"]
+description = "Test RPC tool for Ethereum written in Rust"
+repository = "https://github.com/ethereumproject/etestrpc"
+
+[dependencies]
