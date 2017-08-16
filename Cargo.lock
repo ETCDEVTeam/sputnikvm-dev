@@ -1,5 +1,5 @@
 [root]
-name = "etestrpc"
+name = "sputnikvm-dev"
 version = "0.1.0"
 dependencies = [
  "blockchain 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
