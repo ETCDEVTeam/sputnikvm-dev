@@ -18,6 +18,10 @@ use blockchain::chain::HeaderHash;
 
 mod state;
 
+pub use state::{append_pending_transaction,
+                block_height, get_block_by_hash, get_block_by_number, current_block,
+                get_transaction_by_hash, trie_database};
+
 fn transit<'a>(
     database: &MemoryDatabase,
     current_block: &Block, transaction: ValidTransaction,
