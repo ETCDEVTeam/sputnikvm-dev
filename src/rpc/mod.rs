@@ -41,6 +41,10 @@ pub fn rpc_loop(addr: &SocketAddr) {
         wrapper(serves::web3_client_version(parse(p)?))
     });
 
+    io.add_method("web3_sha3", move |p: Params| {
+        wrapper(serves::web3_sha3(parse(p)?))
+    });
+
     let server = ServerBuilder::new(io)
         .cors(DomainsValidation::AllowOnly(vec![
             AccessControlAllowOrigin::Any,

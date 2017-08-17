@@ -8,6 +8,7 @@ extern crate rlp;
 extern crate bloom;
 extern crate block;
 extern crate trie;
+extern crate hexutil;
 #[macro_use]
 extern crate lazy_static;
 extern crate jsonrpc_core;
