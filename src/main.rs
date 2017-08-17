@@ -10,8 +10,15 @@ extern crate block;
 extern crate trie;
 #[macro_use]
 extern crate lazy_static;
+extern crate jsonrpc_core;
+extern crate jsonrpc_http_server;
+extern crate serde;
+extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 
 mod miner;
+mod rpc;
 
 use std::thread;
 
@@ -20,5 +27,5 @@ fn main() {
         miner::mine_loop();
     });
 
-    loop { }
+    rpc::rpc_loop(&"127.0.0.1:9545".parse().unwrap());
 }
