@@ -5,6 +5,7 @@ use hexutil::ParseHexError;
 pub enum Error {
     InvalidParams,
     HexError,
+    UnsupportedTrieQuery,
 }
 
 impl From<ParseHexError> for Error {

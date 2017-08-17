@@ -85,6 +85,14 @@ pub fn rpc_loop(addr: &SocketAddr) {
         wrapper(serves::eth_accounts(parse(p)?))
     });
 
+    io.add_method("eth_blockNumber", move |p: Params| {
+        wrapper(serves::eth_block_number(parse(p)?))
+    });
+
+    io.add_method("eth_getBalance", move |p: Params| {
+        wrapper(serves::eth_get_balance(parse(p)?))
+    });
+
     let server = ServerBuilder::new(io)
         .cors(DomainsValidation::AllowOnly(vec![
             AccessControlAllowOrigin::Any,
