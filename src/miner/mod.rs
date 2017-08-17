@@ -20,7 +20,7 @@ mod state;
 
 pub use self::state::{append_pending_transaction,
                       block_height, get_block_by_hash, get_block_by_number, current_block,
-                      get_transaction_by_hash, trie_database};
+                      get_transaction_by_hash, trie_database, accounts, append_account};
 
 fn transit<'a>(
     database: &MemoryDatabase,

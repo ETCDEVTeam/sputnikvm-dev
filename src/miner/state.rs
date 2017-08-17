@@ -3,6 +3,7 @@ use block::{Receipt, Block, UnsignedTransaction, Transaction, TransactionAction,
 use trie::{MemoryDatabase, MemoryDatabaseGuard, Trie};
 use bigint::{H256, M256, U256, H64, B256, Gas, Address};
 use sha3::{Digest, Keccak256};
+use secp256k1::key::SecretKey;
 
 use std::sync::{Mutex, MutexGuard};
 use std::collections::HashMap;
@@ -13,6 +14,7 @@ lazy_static! {
     static ref BLOCK_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
     static ref HASH_DATABASE: Mutex<HashMap<H256, Vec<u8>>> = Mutex::new(HashMap::new());
     static ref TRIE_DATABASE: Mutex<MemoryDatabase> = Mutex::new(MemoryDatabase::new());
+    static ref ACCOUNTS: Mutex<Vec<SecretKey>> = Mutex::new(Vec::new());
 }
 
 pub fn append_pending_transaction(transaction: Transaction) {
@@ -77,4 +79,12 @@ pub fn current_block() -> Block {
 
 pub fn trie_database() -> MutexGuard<'static, MemoryDatabase> {
     TRIE_DATABASE.lock().unwrap()
+}
+
+pub fn accounts() -> Vec<SecretKey> {
+    ACCOUNTS.lock().unwrap().clone()
+}
+
+pub fn append_account(key: SecretKey) {
+    ACCOUNTS.lock().unwrap().push(key)
 }

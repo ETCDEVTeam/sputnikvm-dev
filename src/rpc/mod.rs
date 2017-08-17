@@ -45,6 +45,46 @@ pub fn rpc_loop(addr: &SocketAddr) {
         wrapper(serves::web3_sha3(parse(p)?))
     });
 
+    io.add_method("net_version", move |p: Params| {
+        wrapper(serves::net_version(parse(p)?))
+    });
+
+    io.add_method("net_listening", move |p: Params| {
+        wrapper(serves::net_listening(parse(p)?))
+    });
+
+    io.add_method("net_peerCount", move |p: Params| {
+        wrapper(serves::net_peer_count(parse(p)?))
+    });
+
+    io.add_method("eth_protocolVersion", move |p: Params| {
+        wrapper(serves::eth_protocol_version(parse(p)?))
+    });
+
+    io.add_method("eth_syncing", move |p: Params| {
+        wrapper(serves::eth_syncing(parse(p)?))
+    });
+
+    io.add_method("eth_coinbase", move |p: Params| {
+        wrapper(serves::eth_coinbase(parse(p)?))
+    });
+
+    io.add_method("eth_mining", move |p: Params| {
+        wrapper(serves::eth_mining(parse(p)?))
+    });
+
+    io.add_method("eth_hashrate", move |p: Params| {
+        wrapper(serves::eth_hashrate(parse(p)?))
+    });
+
+    io.add_method("eth_gasPrice", move |p: Params| {
+        wrapper(serves::eth_gas_price(parse(p)?))
+    });
+
+    io.add_method("eth_accounts", move |p: Params| {
+        wrapper(serves::eth_accounts(parse(p)?))
+    });
+
     let server = ServerBuilder::new(io)
         .cors(DomainsValidation::AllowOnly(vec![
             AccessControlAllowOrigin::Any,
