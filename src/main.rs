@@ -13,6 +13,12 @@ extern crate lazy_static;
 
 mod miner;
 
+use std::thread;
+
 fn main() {
-    miner::mine_loop();
+    thread::spawn(|| {
+        miner::mine_loop();
+    });
+
+    loop { }
 }
