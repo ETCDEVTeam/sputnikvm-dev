@@ -204,14 +204,23 @@ fn next<'a>(
 
     debug_assert!(transactions.len() == receipts.len());
 
-    let mut transactions_trie = database.create_empty();
-    let mut receipts_trie = database.create_empty();
+    let mut transactions_trie = Trie::empty(HashMap::new());
+    let mut receipts_trie = Trie::empty(HashMap::new());
     let mut logs_bloom = LogsBloom::new();
     let mut gas_used = Gas::zero();
 
     for i in 0..transactions.len() {
-        transactions_trie.insert(rlp::encode(&i).to_vec(), rlp::encode(&transactions[i]).to_vec());
-        receipts_trie.insert(rlp::encode(&i).to_vec(), rlp::encode(&receipts[i]).to_vec());
+        let transaction_rlp = rlp::encode(&transactions[i]).to_vec();
+        let transaction_hash = H256::from(Keccak256::digest(&transaction_rlp).as_slice());
+        let receipt_rlp = rlp::encode(&receipts[i]).to_vec();
+        let receipt_hash = H256::from(Keccak256::digest(&receipt_rlp).as_slice());
+
+        transactions_trie.insert(rlp::encode(&i).to_vec(), transaction_rlp.clone());
+        receipts_trie.insert(rlp::encode(&i).to_vec(), receipt_rlp.clone());
+
+        state::insert_hash_raw(transaction_hash, transaction_rlp);
+        state::insert_hash_raw(receipt_hash, receipt_rlp);
+
         logs_bloom = logs_bloom | receipts[i].logs_bloom.clone();
         gas_used = gas_used + receipts[i].used_gas.clone();
     }

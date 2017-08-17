@@ -69,6 +69,10 @@ pub fn get_transaction_by_hash(key: H256) -> Transaction {
     rlp::decode(&get_hash_raw(key))
 }
 
+pub fn get_receipt_by_hash(key: H256) -> Receipt {
+    rlp::decode(&get_hash_raw(key))
+}
+
 pub fn get_block_by_number(index: usize) -> Block {
     rlp::decode(&get_hash_raw(BLOCK_HASHES.lock().unwrap()[index]))
 }
