@@ -390,6 +390,6 @@ pub fn mine_loop() {
             println!("mined a new block: {:?}", state::current_block());
         }
 
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(10000));
     }
 }
