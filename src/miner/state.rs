@@ -71,6 +71,10 @@ pub fn get_block_by_number(index: usize) -> Block {
     rlp::decode(&get_hash_raw(BLOCK_HASHES.lock().unwrap()[index]))
 }
 
+pub fn current_block() -> Block {
+    get_block_by_number(block_height() - 1)
+}
+
 pub fn trie_database() -> MutexGuard<'static, MemoryDatabase> {
     TRIE_DATABASE.lock().unwrap()
 }

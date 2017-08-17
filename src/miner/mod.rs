@@ -19,7 +19,7 @@ use blockchain::chain::HeaderHash;
 mod state;
 
 fn transit<'a>(
-    database: &MemoryDatabase, blockhashes: &Vec<H256>,
+    database: &MemoryDatabase,
     current_block: &Block, transaction: ValidTransaction,
     patch: &'static Patch, state: &mut Trie<MemoryDatabaseGuard<'a>>
 ) -> Receipt {
@@ -89,7 +89,7 @@ fn transit<'a>(
                 }
             },
             Err(RequireError::Blockhash(number)) => {
-                vm.commit_blockhash(number, blockhashes[number.as_u64() as usize]);
+                vm.commit_blockhash(number, state::get_block_by_number(number.as_u64() as usize).header.header_hash());
             },
         }
     }
@@ -325,78 +325,66 @@ pub fn mine_loop() {
     let address = Address::from_secret_key(&secret_key).unwrap();
     println!("address: {:?}", address);
 
-    let mut blockhashes = Vec::new();
+    {
+        let database = state::trie_database();
+        let mut state = database.create_empty();
 
-    let database = MemoryDatabase::new();
-    let mut state = database.create_empty();
+        state.insert(address.as_ref().into(), rlp::encode(&Account {
+            nonce: U256::zero(),
+            balance: U256::from_str("0x10000000000000000000000000000").unwrap(),
+            storage_root: database.create_empty().root(),
+            code_hash: H256::from(Keccak256::digest(&[]).as_slice()),
+        }).to_vec());
 
-    state.insert(address.as_ref().into(), rlp::encode(&Account {
-        nonce: U256::zero(),
-        balance: U256::from_str("0x10000000000000000000000000000").unwrap(),
-        storage_root: database.create_empty().root(),
-        code_hash: H256::from(Keccak256::digest(&[]).as_slice()),
-    }).to_vec());
+        state::append_block(Block {
+            header: Header {
+                parent_hash: H256::default(),
+                ommers_hash: database.create_empty().root(),
+                beneficiary: Address::default(),
+                state_root: state.root(),
+                transactions_root: database.create_empty().root(),
+                receipts_root: database.create_empty().root(),
+                logs_bloom: LogsBloom::new(),
+                number: U256::zero(),
+                gas_limit: Gas::zero(),
+                gas_used: Gas::zero(),
+                timestamp: current_timestamp(),
+                extra_data: B256::default(),
 
-    let mut current_block = Block {
-        header: Header {
-            parent_hash: H256::default(),
-            ommers_hash: database.create_empty().root(),
-            beneficiary: Address::default(),
-            state_root: state.root(),
-            transactions_root: database.create_empty().root(),
-            receipts_root: database.create_empty().root(),
-            logs_bloom: LogsBloom::new(),
-            number: U256::zero(),
-            gas_limit: Gas::zero(),
-            gas_used: Gas::zero(),
-            timestamp: current_timestamp(),
-            extra_data: B256::default(),
+                difficulty: U256::zero(),
+                mix_hash: H256::default(),
+                nonce: H64::default(),
+            },
+            transactions: Vec::new(),
+            ommers: Vec::new(),
+        });
+    }
 
-            difficulty: U256::zero(),
-            mix_hash: H256::default(),
-            nonce: H64::default(),
-        },
-        transactions: Vec::new(),
-        ommers: Vec::new(),
-    };
-
-    blockhashes.push(current_block.header.header_hash());
-
-    let mut account_nonce = U256::zero();
     loop {
-        let transactions = vec![
-            {
-                let unsigned = UnsignedTransaction {
-                    nonce: account_nonce,
-                    gas_price: Gas::zero(),
-                    gas_limit: Gas::from_str("0x100000000").unwrap(),
-                    action: TransactionAction::Create,
-                    value: U256::zero(),
-                    input: Vec::new(),
-                    network_id: Some(61),
-                };
-                let signed = unsigned.sign(&secret_key);
-                signed
+        {
+            let database = state::trie_database();
+            let current_block = state::current_block();
+            let transactions = state::clear_pending_transactions();
+
+            let mut state = database.create_trie(current_block.header.state_root);
+            let beneficiary = Address::default();
+
+            let mut receipts = Vec::new();
+
+            for transaction in transactions.clone() {
+                let valid = to_valid(&database, transaction, patch, &state);
+                let receipt = transit(&database, &current_block, valid, patch,
+                                      &mut state);
+                receipts.push(receipt);
             }
-        ];
-        let beneficiary = Address::default();
-        account_nonce = account_nonce + U256::one();
 
-        let mut receipts = Vec::new();
+            let next_block = next(&database, &current_block, transactions.as_ref(), receipts.as_ref(),
+                                  beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
+                                  &mut state);
+            state::append_block(next_block);
 
-        for transaction in transactions.clone() {
-            let valid = to_valid(&database, transaction, patch, &state);
-            let receipt = transit(&database, &blockhashes, &current_block, valid, patch, &mut state);
-            receipts.push(receipt);
+            println!("mined a new block: {:?}", state::current_block());
         }
-
-        let next_block = next(&database, &current_block, transactions.as_ref(), receipts.as_ref(),
-                              beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
-                              &mut state);
-        current_block = next_block;
-        blockhashes.push(current_block.header.header_hash());
-
-        println!("mined a new block: {:?}", current_block);
 
         thread::sleep(Duration::from_millis(1000));
     }
