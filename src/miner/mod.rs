@@ -34,12 +34,11 @@ fn transit<'a>(
         match vm.fire() {
             Ok(val) => break,
             Err(RequireError::Account(address)) => {
-                let account = state.get(address.as_ref());
+                let account: Option<Account> = state.get(&address);
 
                 match account {
-                    Some(val) => {
-                        let account: Account = rlp::decode(val.as_ref());
-                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+                    Some(account) => {
+                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
 
                         vm.commit_account(AccountCommitment::Full {
                             nonce: account.nonce,
@@ -54,12 +53,11 @@ fn transit<'a>(
                 }
             },
             Err(RequireError::AccountCode(address)) => {
-                let account = state.get(address.as_ref());
+                let account: Option<Account> = state.get(&address);
 
                 match account {
-                    Some(val) => {
-                        let account: Account = rlp::decode(val.as_ref());
-                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+                    Some(account) => {
+                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
 
                         vm.commit_account(AccountCommitment::Code {
                             address: address,
@@ -72,15 +70,14 @@ fn transit<'a>(
                 }
             },
             Err(RequireError::AccountStorage(address, index)) => {
-                let account = state.get(address.as_ref());
+                let account: Option<Account> = state.get(&address);
 
                 match account {
-                    Some(val) => {
-                        let account: Account = rlp::decode(val.as_ref());
-                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+                    Some(account) => {
+                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
 
                         let storage = database.create_trie(account.storage_root);
-                        let value = storage.get(rlp::encode(&index).to_vec().as_ref()).map(|v| rlp::decode::<M256>(v.as_ref())).unwrap_or(M256::zero());
+                        let value = storage.get(&index).unwrap_or(M256::zero());
 
                         vm.commit_account(AccountCommitment::Storage {
                             address: address,
@@ -105,18 +102,11 @@ fn transit<'a>(
             } => {
                 let changing_storage: HashMap<U256, M256> = changing_storage.into();
 
-                let account_rlp = state.get(address.as_ref()).unwrap();
-                let mut account: Account = rlp::decode(&account_rlp);
+                let mut account: Account = state.get(&address).unwrap();
 
                 let mut storage_trie = database.create_trie(account.storage_root);
                 for (key, value) in changing_storage {
-                    let mut key_raw = Vec::new();
-                    let mut value_raw = Vec::new();
-                    let key: U256 = key.into();
-                    let value: U256 = value.into();
-                    key.to_big_endian(&mut key_raw);
-                    value.to_big_endian(&mut value_raw);
-                    storage_trie.insert(key_raw, value_raw);
+                    storage_trie.insert(key, value);
                 }
 
                 account.balance = balance;
@@ -124,43 +114,35 @@ fn transit<'a>(
                 account.storage_root = storage_trie.root();
                 assert!(account.code_hash == H256::from(Keccak256::digest(&code).as_slice()));
 
-                state.insert(address.as_ref().into(), rlp::encode(&account).to_vec());
+                state.insert(address, account);
             },
             vm::Account::IncreaseBalance(address, value) => {
-                let account_rlp = state.get(address.as_ref()).unwrap();
-                let mut account: Account = rlp::decode(&account_rlp);
+                let mut account: Account = state.get(&address).unwrap();
 
                 account.balance = account.balance + value;
-                state.insert(address.as_ref().into(), rlp::encode(&account).to_vec());
+                state.insert(address, account);
             },
             vm::Account::DecreaseBalance(address, value) => {
-                let account_rlp = state.get(address.as_ref()).unwrap();
-                let mut account: Account = rlp::decode(&account_rlp);
+                let mut account: Account = state.get(&address).unwrap();
 
                 account.balance = account.balance - value;
-                state.insert(address.as_ref().into(), rlp::encode(&account).to_vec());
+                state.insert(address, account);
             },
             vm::Account::Create {
                 nonce, address, balance, storage, code, exists
             } => {
                 if !exists {
-                    state.remove(address.as_ref());
+                    state.remove(&address);
                 } else {
                     let storage: HashMap<U256, M256> = storage.into();
 
                     let mut storage_trie = database.create_empty();
                     for (key, value) in storage {
-                        let mut key_raw = Vec::new();
-                        let mut value_raw = Vec::new();
-                        let key: U256 = key.into();
-                        let value: U256 = value.into();
-                        key.to_big_endian(&mut key_raw);
-                        value.to_big_endian(&mut value_raw);
-                        storage_trie.insert(key_raw, value_raw);
+                        storage_trie.insert(key, value);
                     }
 
                     let code_hash = H256::from(Keccak256::digest(&code).as_slice());
-                    state.insert(code_hash.as_ref().into(), code.clone());
+                    state.insert(code_hash, code);
 
                     let account = Account {
                         nonce: nonce,
@@ -169,7 +151,7 @@ fn transit<'a>(
                         code_hash
                     };
 
-                    state.insert(address.as_ref().into(), rlp::encode(&account).to_vec());
+                    state.insert(address, account);
                 }
             },
         }
@@ -265,12 +247,11 @@ fn to_valid<'a>(
         match ValidTransaction::from_transaction(&signed, &account_state, patch) {
             Ok(val) => return val.unwrap(),
             Err(RequireError::Account(address)) => {
-                let account = state.get(address.as_ref());
+                let account: Option<Account> = state.get(&address);
 
                 match account {
-                    Some(val) => {
-                        let account: Account = rlp::decode(val.as_ref());
-                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+                    Some(account) => {
+                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
 
                         account_state.commit(AccountCommitment::Full {
                             nonce: account.nonce,
@@ -285,12 +266,11 @@ fn to_valid<'a>(
                 }
             },
             Err(RequireError::AccountCode(address)) => {
-                let account = state.get(address.as_ref());
+                let account: Option<Account> = state.get(&address);
 
                 match account {
-                    Some(val) => {
-                        let account: Account = rlp::decode(val.as_ref());
-                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+                    Some(account) => {
+                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
 
                         account_state.commit(AccountCommitment::Code {
                             address: address,
@@ -303,15 +283,14 @@ fn to_valid<'a>(
                 }
             },
             Err(RequireError::AccountStorage(address, index)) => {
-                let account = state.get(address.as_ref());
+                let account: Option<Account> = state.get(&address);
 
                 match account {
-                    Some(val) => {
-                        let account: Account = rlp::decode(val.as_ref());
-                        let code = state.get(account.code_hash.as_ref()).unwrap_or(Vec::new());
+                    Some(account) => {
+                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
 
                         let storage = database.create_trie(account.storage_root);
-                        let value = storage.get(rlp::encode(&index).to_vec().as_ref()).map(|v| rlp::decode::<M256>(v.as_ref())).unwrap_or(M256::zero());
+                        let value = storage.get(&index).unwrap_or(M256::zero());
 
                         account_state.commit(AccountCommitment::Storage {
                             address: address,
@@ -342,12 +321,12 @@ pub fn mine_loop() {
         let database = state::trie_database();
         let mut state = database.create_empty();
 
-        state.insert(address.as_ref().into(), rlp::encode(&Account {
+        state.insert(address, Account {
             nonce: U256::zero(),
             balance: U256::from_str("0x10000000000000000000000000000").unwrap(),
             storage_root: database.create_empty().root(),
             code_hash: H256::from(Keccak256::digest(&[]).as_slice()),
-        }).to_vec());
+        });
 
         state::append_block(Block {
             header: Header {

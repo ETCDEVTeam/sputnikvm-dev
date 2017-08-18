@@ -2,9 +2,10 @@ use super::Error;
 use miner;
 
 use rlp;
-use bigint::{U256, Address};
+use bigint::{M256, U256, Address};
 use hexutil::{read_hex, to_hex};
 use block::{Account, FromKey};
+use std::str::FromStr;
 
 fn from_block_number(value: String) -> Result<usize, Error> {
     if value == "latest" || value == "pending" {
@@ -70,24 +71,44 @@ pub fn eth_accounts(_: ()) -> Result<Vec<String>, Error> {
     }).collect())
 }
 
-//
-
 pub fn eth_block_number(_: ()) -> Result<String, Error> {
     Ok(format!("0x{:x}", miner::block_height()))
 }
 
 pub fn eth_get_balance((address, block): (String, String)) -> Result<String, Error> {
-    let address = Address::from(read_hex(&address)?.as_slice());
+    let address = Address::from_str(&address)?;
     let block = from_block_number(block)?;
 
     let block = miner::get_block_by_number(block);
     let database = miner::trie_database();
     let trie = database.create_trie(block.header.state_root);
 
-    match trie.get(address.as_ref()) {
-        Some(val) => {
-            let account: Account = rlp::decode(&val);
+    let account: Option<Account> = trie.get(&address);
+    match account {
+        Some(account) => {
             Ok(format!("0x{:x}", account.balance))
+        },
+        None => {
+            Ok(format!("0x{:x}", 0))
+        },
+    }
+}
+
+pub fn eth_get_storage_at((address, index, block): (String, String, String)) -> Result<String, Error> {
+    let address = Address::from_str(&address)?;
+    let index = U256::from_str(&index)?;
+    let block = from_block_number(block)?;
+
+    let block = miner::get_block_by_number(block);
+    let database = miner::trie_database();
+    let trie = database.create_trie(block.header.state_root);
+
+    let account: Option<Account> = trie.get(&address);
+    match account {
+        Some(account) => {
+            let storage = database.create_trie(account.storage_root);
+            let value = storage.get(&index).unwrap_or(M256::zero());
+            Ok(format!("0x{:x}", value))
         },
         None => {
             Ok(format!("0x{:x}", 0))

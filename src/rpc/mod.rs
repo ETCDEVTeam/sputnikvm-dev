@@ -93,6 +93,10 @@ pub fn rpc_loop(addr: &SocketAddr) {
         wrapper(serves::eth_get_balance(parse(p)?))
     });
 
+    io.add_method("eth_getStorageAt", move |p: Params| {
+        wrapper(serves::eth_get_storage_at(parse(p)?))
+    });
+
     let server = ServerBuilder::new(io)
         .cors(DomainsValidation::AllowOnly(vec![
             AccessControlAllowOrigin::Any,
