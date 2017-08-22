@@ -23,11 +23,11 @@ pub use self::state::{append_pending_transaction,
                       get_transaction_by_hash, trie_database, accounts, append_account,
                       get_hash_raw};
 
-fn transit<'a>(
+pub fn call<'a>(
     database: &MemoryDatabase,
     current_block: &Block, transaction: ValidTransaction,
-    patch: &'static Patch, state: &mut Trie<MemoryDatabaseGuard<'a>>
-) -> Receipt {
+    patch: &'static Patch, state: &Trie<MemoryDatabaseGuard<'a>>
+) -> SeqTransactionVM {
     let params = HeaderParams::from(&current_block.header);
 
     let mut vm = SeqTransactionVM::new(transaction, params, patch);
@@ -95,6 +95,16 @@ fn transit<'a>(
             },
         }
     }
+
+    vm
+}
+
+fn transit<'a>(
+    database: &MemoryDatabase,
+    current_block: &Block, transaction: ValidTransaction,
+    patch: &'static Patch, state: &mut Trie<MemoryDatabaseGuard<'a>>
+) -> Receipt {
+    let vm = call(database, current_block, transaction, patch, state);
 
     for account in vm.accounts() {
         match account.clone() {
@@ -238,7 +248,7 @@ fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
-fn to_valid<'a>(
+pub fn to_valid<'a>(
     database: &MemoryDatabase,
     signed: Transaction, patch: &'static Patch, state: &Trie<MemoryDatabaseGuard<'a>>
 ) -> ValidTransaction {

@@ -1,10 +1,11 @@
-use super::{EthereumRPC, RPCTransaction, Error};
+use super::{EthereumRPC, RPCTransaction, RPCBlock, Error};
 use miner;
 
 use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Account, FromKey, Transaction, UnsignedTransaction, TransactionAction};
+use sputnikvm::vm::{self, ValidTransaction, VM};
 use std::str::FromStr;
 
 use jsonrpc_macros::Trailing;
@@ -20,6 +21,57 @@ fn from_block_number(value: Trailing<String>) -> Result<usize, Error> {
         let v: u64 = U256::from(read_hex(&value.unwrap())?.as_slice()).into();
         Ok(v as usize)
     }
+}
+
+fn to_signed_transaction(transaction: RPCTransaction) -> Result<Transaction, Error> {
+    let address = Address::from_str(&transaction.from)?;
+    let secret_key = {
+        let mut secret_key = None;
+        for key in miner::accounts() {
+            if Address::from_secret_key(&key)? == address {
+                secret_key = Some(key);
+            }
+        }
+        match secret_key {
+            Some(val) => val,
+            None => return Err(Error::AccountNotFound),
+        }
+    };
+    let block = miner::get_block_by_number(miner::block_height());
+    let database = miner::trie_database();
+    let trie = database.create_trie(block.header.state_root);
+
+    let account: Option<Account> = trie.get(&address);
+
+    let unsigned = UnsignedTransaction {
+        nonce: match transaction.nonce {
+            Some(val) => U256::from_str(&val)?,
+            None => {
+                account.as_ref().map(|account| account.nonce).unwrap_or(U256::zero())
+            }
+        },
+        gas_price: match transaction.gas_price {
+            Some(val) => Gas::from_str(&val)?,
+            None => Gas::zero(),
+        },
+        gas_limit: match transaction.gas {
+            Some(val) => Gas::from_str(&val)?,
+            None => Gas::from(90000u64),
+        },
+        action: match transaction.to {
+            Some(val) => TransactionAction::Call(Address::from_str(&val)?),
+            None => TransactionAction::Create,
+        },
+        value: match transaction.value {
+            Some(val) => U256::from_str(&val)?,
+            None => U256::zero(),
+        },
+        input: read_hex(&transaction.data)?,
+        network_id: None,
+    };
+    let transaction = unsigned.sign(&secret_key);
+
+    Ok(transaction)
 }
 
 pub struct MinerEthereumRPC;
@@ -224,52 +276,7 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn send_transaction(&self, transaction: RPCTransaction) -> Result<String, Error> {
-        let address = Address::from_str(&transaction.from)?;
-        let secret_key = {
-            let mut secret_key = None;
-            for key in miner::accounts() {
-                if Address::from_secret_key(&key)? == address {
-                    secret_key = Some(key);
-                }
-            }
-            match secret_key {
-                Some(val) => val,
-                None => return Err(Error::AccountNotFound),
-            }
-        };
-        let block = miner::get_block_by_number(miner::block_height());
-        let database = miner::trie_database();
-        let trie = database.create_trie(block.header.state_root);
-
-        let account: Option<Account> = trie.get(&address);
-
-        let unsigned = UnsignedTransaction {
-            nonce: match transaction.nonce {
-                Some(val) => U256::from_str(&val)?,
-                None => {
-                    account.as_ref().map(|account| account.nonce).unwrap_or(U256::zero())
-                }
-            },
-            gas_price: match transaction.gas_price {
-                Some(val) => Gas::from_str(&val)?,
-                None => Gas::zero(),
-            },
-            gas_limit: match transaction.gas {
-                Some(val) => Gas::from_str(&val)?,
-                None => Gas::from(90000u64),
-            },
-            action: match transaction.to {
-                Some(val) => TransactionAction::Call(Address::from_str(&val)?),
-                None => TransactionAction::Create,
-            },
-            value: match transaction.value {
-                Some(val) => U256::from_str(&val)?,
-                None => U256::zero(),
-            },
-            input: read_hex(&transaction.data)?,
-            network_id: None,
-        };
-        let transaction = unsigned.sign(&secret_key);
+        let transaction = to_signed_transaction(transaction)?;
 
         let hash = miner::append_pending_transaction(transaction);
         Ok(format!("0x{:x}", hash))
@@ -282,5 +289,37 @@ impl EthereumRPC for MinerEthereumRPC {
 
         let hash = miner::append_pending_transaction(transaction);
         Ok(format!("0x{:x}", hash))
+    }
+
+    fn call(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
+        let transaction = to_signed_transaction(transaction)?;
+        let block = from_block_number(block)?;
+
+        let block = miner::get_block_by_number(block);
+        let database = miner::trie_database();
+        let trie = database.create_trie(block.header.state_root);
+
+        let valid = miner::to_valid(&database, transaction, &vm::EIP160_PATCH, &trie);
+        let vm = miner::call(&database, &block, valid, &vm::EIP160_PATCH, &trie);
+
+        Ok(to_hex(vm.out()))
+    }
+
+    fn estimate_gas(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
+        let transaction = to_signed_transaction(transaction)?;
+        let block = from_block_number(block)?;
+
+        let block = miner::get_block_by_number(block);
+        let database = miner::trie_database();
+        let trie = database.create_trie(block.header.state_root);
+
+        let valid = miner::to_valid(&database, transaction, &vm::EIP160_PATCH, &trie);
+        let vm = miner::call(&database, &block, valid, &vm::EIP160_PATCH, &trie);
+
+        Ok(format!("0x{:x}", vm.real_used_gas()))
+    }
+
+    fn block_by_hash(&self, hash: String, full: bool) -> Result<RPCBlock, Error> {
+        unimplemented!()
     }
 }

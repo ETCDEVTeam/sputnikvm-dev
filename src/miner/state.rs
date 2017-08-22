@@ -1,5 +1,5 @@
 use rlp;
-use block::{Receipt, Block, UnsignedTransaction, Transaction, TransactionAction, Log, FromKey, Header, Account};
+use block::{Receipt, Block, TotalHeader, UnsignedTransaction, Transaction, TransactionAction, Log, FromKey, Header, Account};
 use trie::{MemoryDatabase, MemoryDatabaseGuard, Trie};
 use bigint::{H256, M256, U256, H64, B256, Gas, Address};
 use sha3::{Digest, Keccak256};
@@ -12,6 +12,7 @@ lazy_static! {
     static ref PENDING_TRANSACTION_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
     static ref CURRENT_BLOCK: Mutex<H256> = Mutex::new(H256::default());
     static ref BLOCK_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
+    static ref TOTAL_HEADERS: Mutex<HashMap<H256, TotalHeader>> = Mutex::new(HashMap::new());
     static ref HASH_DATABASE: Mutex<HashMap<H256, Vec<u8>>> = Mutex::new(HashMap::new());
     static ref TRIE_DATABASE: Mutex<MemoryDatabase> = Mutex::new(MemoryDatabase::new());
     static ref ACCOUNTS: Mutex<Vec<SecretKey>> = Mutex::new(Vec::new());
@@ -55,7 +56,15 @@ pub fn append_block(block: Block) -> H256 {
     let hash = H256::from(Keccak256::digest(&value).as_slice());
     insert_hash_raw(hash, value);
 
+    let parent_hash = BLOCK_HASHES.lock().unwrap()[block_height()];
     BLOCK_HASHES.lock().unwrap().push(hash);
+    let mut total_headers = TOTAL_HEADERS.lock().unwrap();
+    if total_headers.len() == 0 {
+        total_headers.insert(hash, TotalHeader::from_genesis(block.header.clone()));
+    } else {
+        let parent = total_headers.get(&parent_hash).unwrap().clone();
+        total_headers.insert(hash, TotalHeader::from_parent(block.header.clone(), &parent));
+    }
     *CURRENT_BLOCK.lock().unwrap() = hash;
 
     hash
@@ -79,6 +88,14 @@ pub fn get_receipt_by_hash(key: H256) -> Receipt {
 
 pub fn get_block_by_number(index: usize) -> Block {
     rlp::decode(&get_hash_raw(BLOCK_HASHES.lock().unwrap()[index]))
+}
+
+pub fn get_total_header_by_hash(key: H256) -> TotalHeader {
+    TOTAL_HEADERS.lock().unwrap().get(&key).unwrap().clone()
+}
+
+pub fn get_total_header_by_number(index: usize) -> TotalHeader {
+    TOTAL_HEADERS.lock().unwrap().get(&BLOCK_HASHES.lock().unwrap()[index]).unwrap().clone()
 }
 
 pub fn current_block() -> Block {

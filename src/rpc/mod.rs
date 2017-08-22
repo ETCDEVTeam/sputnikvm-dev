@@ -15,6 +15,36 @@ pub use self::error::Error;
 
 use super::miner;
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum Either<T, U> {
+    Left(T),
+    Right(U),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RPCBlock {
+    pub number: String,
+    pub hash: String,
+    pub parent_hash: String,
+    pub nonce: String,
+    pub sha3_uncles: String,
+    pub logs_bloom: String,
+    pub transactions_root: String,
+    pub state_root: String,
+    pub receipts_root: String,
+    pub miner: String,
+    pub difficulty: String,
+    pub total_difficulty: String,
+    pub extra_data: String,
+    pub size: String,
+    pub gas_limit: String,
+    pub gas_used: String,
+    pub timestamp: String,
+    pub transactions: Vec<Either<String, RPCTransaction>>,
+    pub uncles: Vec<String>,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCTransaction {
@@ -79,6 +109,14 @@ build_rpc_trait! {
         fn send_transaction(&self, RPCTransaction) -> Result<String, Error>;
         #[rpc(name = "eth_sendRawTransaction")]
         fn send_raw_transaction(&self, String) -> Result<String, Error>;
+
+        #[rpc(name = "eth_call")]
+        fn call(&self, RPCTransaction, Trailing<String>) -> Result<String, Error>;
+        #[rpc(name = "eth_estimateGas")]
+        fn estimate_gas(&self, RPCTransaction, Trailing<String>) -> Result<String, Error>;
+
+        #[rpc(name = "eth_getBlockByHash")]
+        fn block_by_hash(&self, String, bool) -> Result<RPCBlock, Error>;
     }
 }
 
