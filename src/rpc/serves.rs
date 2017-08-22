@@ -2,7 +2,7 @@ use super::{EthereumRPC, Error};
 use miner;
 
 use rlp;
-use bigint::{M256, U256, Address};
+use bigint::{M256, U256, H256, Address};
 use hexutil::{read_hex, to_hex};
 use block::{Account, FromKey};
 use std::str::FromStr;
@@ -119,6 +119,73 @@ impl EthereumRPC for MinerEthereumRPC {
             },
             None => {
                 Ok(format!("0x{:x}", 0))
+            },
+        }
+    }
+
+    fn transaction_count(&self, address: String, block: Trailing<String>) -> Result<String, Error> {
+        let address = Address::from_str(&address)?;
+        let block = from_block_number(block)?;
+
+        let block = miner::get_block_by_number(block);
+        let mut count = 0;
+
+        for transactions in block.transactions {
+            if transactions.caller()? == address {
+                count += 1;
+            }
+        }
+
+        Ok(format!("0x{:x}", count))
+    }
+
+    fn block_transaction_count_by_hash(&self, block: String) -> Result<Option<String>, Error> {
+        let hash = H256::from_str(&block)?;
+        let block = miner::get_block_by_hash(hash);
+
+        // TODO: handle None case
+        Ok(Some(format!("0x{:x}", block.transactions.len())))
+    }
+
+    fn block_transaction_count_by_number(&self, number: String) -> Result<Option<String>, Error> {
+        let number = U256::from_str(&number)?;
+        let block = miner::get_block_by_number(number.as_usize());
+
+        // TODO: handle None case
+        Ok(Some(format!("0x{:x}", block.transactions.len())))
+    }
+
+    fn block_uncles_count_by_hash(&self, block: String) -> Result<Option<String>, Error> {
+        let hash = H256::from_str(&block)?;
+        let block = miner::get_block_by_hash(hash);
+
+        // TODO: handle None case
+        Ok(Some(format!("0x{:x}", block.ommers.len())))
+    }
+
+    fn block_uncles_count_by_number(&self, number: String) -> Result<Option<String>, Error> {
+        let number = U256::from_str(&number)?;
+        let block = miner::get_block_by_number(number.as_usize());
+
+        // TODO: handle None case
+        Ok(Some(format!("0x{:x}", block.ommers.len())))
+    }
+
+    fn code(&self, address: String, block: Trailing<String>) -> Result<String, Error> {
+        let address = Address::from_str(&address)?;
+        let block = from_block_number(block)?;
+
+        let block = miner::get_block_by_number(block);
+        let database = miner::trie_database();
+        let trie = database.create_trie(block.header.state_root);
+
+        let account: Option<Account> = trie.get(&address);
+        match account {
+            Some(account) => {
+                Ok(to_hex(&miner::get_hash_raw(account.code_hash)))
+            },
+            None => {
+                Ok("".to_string())
             },
         }
     }

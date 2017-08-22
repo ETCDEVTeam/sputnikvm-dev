@@ -49,18 +49,18 @@ build_rpc_trait! {
 		fn balance(&self, String, Trailing<String>) -> Result<String, Error>;
 		#[rpc(name = "eth_getStorageAt")]
 		fn storage_at(&self, String, String, Trailing<String>) -> Result<String, Error>;
-        // #[rpc(name = "eth_getTransactionCount")]
-		// fn transaction_count(&self, String, Trailing<String>) -> Result<String, Error>;
-        // #[rpc(name = "eth_getBlockTransactionCountByHash")]
-		// fn block_transaction_count_by_hash(&self, String) -> Result<Option<String>, Error>;
-        // #[rpc(name = "eth_getBlockTransactionCountByNumber")]
-		// fn block_transaction_count_by_number(&self, String) -> Result<Option<String>, Error>;
-        // #[rpc(name = "eth_getUncleCountByBlockHash")]
-		// fn block_uncles_count_by_hash(&self, String) -> Result<Option<String>, Error>;
-        // #[rpc(name = "eth_getUncleCountByBlockNumber")]
-		// fn block_uncles_count_by_number(&self, String) -> Result<Option<String>, Error>;
-		// #[rpc(name = "eth_getCode")]
-		// fn code(&self, String, Trailing<String>) -> Result<String, Error>;
+        #[rpc(name = "eth_getTransactionCount")]
+		fn transaction_count(&self, String, Trailing<String>) -> Result<String, Error>;
+        #[rpc(name = "eth_getBlockTransactionCountByHash")]
+		fn block_transaction_count_by_hash(&self, String) -> Result<Option<String>, Error>;
+        #[rpc(name = "eth_getBlockTransactionCountByNumber")]
+		fn block_transaction_count_by_number(&self, String) -> Result<Option<String>, Error>;
+        #[rpc(name = "eth_getUncleCountByBlockHash")]
+		fn block_uncles_count_by_hash(&self, String) -> Result<Option<String>, Error>;
+        #[rpc(name = "eth_getUncleCountByBlockNumber")]
+		fn block_uncles_count_by_number(&self, String) -> Result<Option<String>, Error>;
+		#[rpc(name = "eth_getCode")]
+		fn code(&self, String, Trailing<String>) -> Result<String, Error>;
     }
 }
 

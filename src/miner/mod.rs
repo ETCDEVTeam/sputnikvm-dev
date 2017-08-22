@@ -20,7 +20,8 @@ mod state;
 
 pub use self::state::{append_pending_transaction,
                       block_height, get_block_by_hash, get_block_by_number, current_block,
-                      get_transaction_by_hash, trie_database, accounts, append_account};
+                      get_transaction_by_hash, trie_database, accounts, append_account,
+                      get_hash_raw};
 
 fn transit<'a>(
     database: &MemoryDatabase,
@@ -38,7 +39,7 @@ fn transit<'a>(
 
                 match account {
                     Some(account) => {
-                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
+                        let code = state::get_hash_raw(account.code_hash);
 
                         vm.commit_account(AccountCommitment::Full {
                             nonce: account.nonce,
@@ -57,7 +58,7 @@ fn transit<'a>(
 
                 match account {
                     Some(account) => {
-                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
+                        let code = state::get_hash_raw(account.code_hash);
 
                         vm.commit_account(AccountCommitment::Code {
                             address: address,
@@ -74,7 +75,7 @@ fn transit<'a>(
 
                 match account {
                     Some(account) => {
-                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
+                        let code = state::get_hash_raw(account.code_hash);
 
                         let storage = database.create_trie(account.storage_root);
                         let value = storage.get(&index).unwrap_or(M256::zero());
@@ -142,7 +143,7 @@ fn transit<'a>(
                     }
 
                     let code_hash = H256::from(Keccak256::digest(&code).as_slice());
-                    state.insert(code_hash, code);
+                    state::insert_hash_raw(code_hash, code);
 
                     let account = Account {
                         nonce: nonce,
@@ -251,7 +252,7 @@ fn to_valid<'a>(
 
                 match account {
                     Some(account) => {
-                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
+                        let code = state::get_hash_raw(account.code_hash);
 
                         account_state.commit(AccountCommitment::Full {
                             nonce: account.nonce,
@@ -270,7 +271,7 @@ fn to_valid<'a>(
 
                 match account {
                     Some(account) => {
-                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
+                        let code = state::get_hash_raw(account.code_hash);
 
                         account_state.commit(AccountCommitment::Code {
                             address: address,
@@ -287,8 +288,6 @@ fn to_valid<'a>(
 
                 match account {
                     Some(account) => {
-                        let code = state.get(&account.code_hash).unwrap_or(Vec::new());
-
                         let storage = database.create_trie(account.storage_root);
                         let value = storage.get(&index).unwrap_or(M256::zero());
 
@@ -320,6 +319,8 @@ pub fn mine_loop() {
     {
         let database = state::trie_database();
         let mut state = database.create_empty();
+
+        state::insert_hash_raw(H256::from(Keccak256::digest(&[]).as_slice()), Vec::new());
 
         state.insert(address, Account {
             nonce: U256::zero(),
