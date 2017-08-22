@@ -13,6 +13,8 @@ extern crate hexutil;
 extern crate lazy_static;
 extern crate jsonrpc_core;
 extern crate jsonrpc_http_server;
+#[macro_use]
+extern crate jsonrpc_macros;
 extern crate serde;
 extern crate serde_json;
 #[macro_use]

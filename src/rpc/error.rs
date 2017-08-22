@@ -13,3 +13,9 @@ impl From<ParseHexError> for Error {
         Error::HexError
     }
 }
+
+impl Into<jsonrpc_core::Error> for Error {
+    fn into(self) -> jsonrpc_core::Error {
+        jsonrpc_core::Error::invalid_request()
+    }
+}
