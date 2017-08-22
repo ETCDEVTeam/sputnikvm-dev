@@ -1,10 +1,10 @@
-use super::{EthereumRPC, Error};
+use super::{EthereumRPC, RPCTransaction, Error};
 use miner;
 
 use rlp;
-use bigint::{M256, U256, H256, Address};
+use bigint::{M256, U256, H256, Address, Gas};
 use hexutil::{read_hex, to_hex};
-use block::{Account, FromKey};
+use block::{Account, FromKey, Transaction, UnsignedTransaction, TransactionAction};
 use std::str::FromStr;
 
 use jsonrpc_macros::Trailing;
@@ -221,5 +221,57 @@ impl EthereumRPC for MinerEthereumRPC {
         ret.extend(sign.as_ref());
 
         Ok(to_hex(&ret))
+    }
+
+    fn send_transaction(&self, transaction: RPCTransaction) -> Result<String, Error> {
+        let address = Address::from_str(&transaction.from)?;
+        let secret_key = {
+            let mut secret_key = None;
+            for key in miner::accounts() {
+                if Address::from_secret_key(&key)? == address {
+                    secret_key = Some(key);
+                }
+            }
+            match secret_key {
+                Some(val) => val,
+                None => return Err(Error::AccountNotFound),
+            }
+        };
+        let block = miner::get_block_by_number(miner::block_height());
+        let database = miner::trie_database();
+        let trie = database.create_trie(block.header.state_root);
+
+        let account: Option<Account> = trie.get(&address);
+
+        let unsigned = UnsignedTransaction {
+            nonce: match transaction.nonce {
+                Some(val) => U256::from_str(&val)?,
+                None => {
+                    account.as_ref().map(|account| account.nonce).unwrap_or(U256::zero())
+                }
+            },
+            gas_price: match transaction.gas_price {
+                Some(val) => Gas::from_str(&val)?,
+                None => Gas::zero(),
+            },
+            gas_limit: match transaction.gas {
+                Some(val) => Gas::from_str(&val)?,
+                None => Gas::from(90000u64),
+            },
+            action: match transaction.to {
+                Some(val) => TransactionAction::Call(Address::from_str(&val)?),
+                None => TransactionAction::Create,
+            },
+            value: match transaction.value {
+                Some(val) => U256::from_str(&val)?,
+                None => U256::zero(),
+            },
+            input: read_hex(&transaction.data)?,
+            network_id: None,
+        };
+        let transaction = unsigned.sign(&secret_key);
+
+        let hash = miner::append_pending_transaction(transaction);
+        Ok(format!("0x{:x}", hash))
     }
 }

@@ -17,12 +17,14 @@ lazy_static! {
     static ref ACCOUNTS: Mutex<Vec<SecretKey>> = Mutex::new(Vec::new());
 }
 
-pub fn append_pending_transaction(transaction: Transaction) {
+pub fn append_pending_transaction(transaction: Transaction) -> H256 {
     let value = rlp::encode(&transaction).to_vec();
     let hash = H256::from(Keccak256::digest(&value).as_slice());
     insert_hash_raw(hash, value);
 
     PENDING_TRANSACTION_HASHES.lock().unwrap().push(hash);
+
+    hash
 }
 
 pub fn clear_pending_transactions() -> Vec<Transaction> {
@@ -48,17 +50,19 @@ pub fn get_hash_raw(key: H256) -> Vec<u8> {
     HASH_DATABASE.lock().unwrap().get(&key).unwrap().clone()
 }
 
-pub fn append_block(block: Block) {
+pub fn append_block(block: Block) -> H256 {
     let value = rlp::encode(&block).to_vec();
     let hash = H256::from(Keccak256::digest(&value).as_slice());
     insert_hash_raw(hash, value);
 
     BLOCK_HASHES.lock().unwrap().push(hash);
     *CURRENT_BLOCK.lock().unwrap() = hash;
+
+    hash
 }
 
 pub fn block_height() -> usize {
-    BLOCK_HASHES.lock().unwrap().len()
+    BLOCK_HASHES.lock().unwrap().len() - 1
 }
 
 pub fn get_block_by_hash(key: H256) -> Block {

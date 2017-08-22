@@ -15,6 +15,18 @@ pub use self::error::Error;
 
 use super::miner;
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCTransaction {
+    pub from: String,
+    pub to: Option<String>,
+    pub gas: Option<String>,
+    pub gas_price: Option<String>,
+    pub value: Option<String>,
+    pub data: String,
+    pub nonce: Option<String>,
+}
+
 build_rpc_trait! {
     pub trait EthereumRPC {
 		#[rpc(name = "web3_clientVersion")]
@@ -63,6 +75,8 @@ build_rpc_trait! {
 		fn code(&self, String, Trailing<String>) -> Result<String, Error>;
         #[rpc(name = "eth_sign")]
         fn sign(&self, String, String) -> Result<String, Error>;
+        #[rpc(name = "eth_sendTransaction")]
+        fn send_transaction(&self, RPCTransaction) -> Result<String, Error>;
     }
 }
 
