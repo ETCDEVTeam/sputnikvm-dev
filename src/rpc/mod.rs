@@ -77,6 +77,8 @@ build_rpc_trait! {
         fn sign(&self, String, String) -> Result<String, Error>;
         #[rpc(name = "eth_sendTransaction")]
         fn send_transaction(&self, RPCTransaction) -> Result<String, Error>;
+        #[rpc(name = "eth_sendRawTransaction")]
+        fn send_raw_transaction(&self, String) -> Result<String, Error>;
     }
 }
 

@@ -1,5 +1,6 @@
 use jsonrpc_core;
 use secp256k1;
+use rlp::DecoderError;
 use hexutil::ParseHexError;
 
 #[derive(Debug)]
@@ -9,6 +10,13 @@ pub enum Error {
     UnsupportedTrieQuery,
     ECDSAError,
     AccountNotFound,
+    RlpError
+}
+
+impl From<DecoderError> for Error {
+    fn from(val: DecoderError) -> Error {
+        Error::RlpError
+    }
 }
 
 impl From<ParseHexError> for Error {

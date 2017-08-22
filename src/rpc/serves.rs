@@ -1,7 +1,7 @@
 use super::{EthereumRPC, RPCTransaction, Error};
 use miner;
 
-use rlp;
+use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Account, FromKey, Transaction, UnsignedTransaction, TransactionAction};
@@ -270,6 +270,15 @@ impl EthereumRPC for MinerEthereumRPC {
             network_id: None,
         };
         let transaction = unsigned.sign(&secret_key);
+
+        let hash = miner::append_pending_transaction(transaction);
+        Ok(format!("0x{:x}", hash))
+    }
+
+    fn send_raw_transaction(&self, data: String) -> Result<String, Error> {
+        let data = read_hex(&data)?;
+        let rlp = UntrustedRlp::new(&data);
+        let transaction: Transaction = rlp.as_val()?;
 
         let hash = miner::append_pending_transaction(transaction);
         Ok(format!("0x{:x}", hash))
