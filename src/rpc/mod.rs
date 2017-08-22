@@ -61,6 +61,8 @@ build_rpc_trait! {
 		fn block_uncles_count_by_number(&self, String) -> Result<Option<String>, Error>;
 		#[rpc(name = "eth_getCode")]
 		fn code(&self, String, Trailing<String>) -> Result<String, Error>;
+        #[rpc(name = "eth_sign")]
+        fn sign(&self, String, String) -> Result<String, Error>;
     }
 }
 

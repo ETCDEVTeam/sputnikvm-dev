@@ -189,4 +189,37 @@ impl EthereumRPC for MinerEthereumRPC {
             },
         }
     }
+
+    fn sign(&self, address: String, message: String) -> Result<String, Error> {
+        use sha3::{Digest, Keccak256};
+        use secp256k1::{SECP256K1, Message};
+
+        let address = Address::from_str(&address)?;
+        let mut signing_message = Vec::new();
+
+        signing_message.extend("Ethereum Signed Message:\n".as_bytes().iter().cloned());
+        signing_message.extend(format!("0x{:x}\n", message.as_bytes().len()).as_bytes().iter().cloned());
+        signing_message.extend(message.as_bytes().iter().cloned());
+
+        let hash = H256::from(Keccak256::digest(&signing_message).as_slice());
+        let secret_key = {
+            let mut secret_key = None;
+            for key in miner::accounts() {
+                if Address::from_secret_key(&key)? == address {
+                    secret_key = Some(key);
+                }
+            }
+            match secret_key {
+                Some(val) => val,
+                None => return Err(Error::AccountNotFound),
+            }
+        };
+        let sign = SECP256K1.sign_recoverable(&Message::from_slice(&hash).unwrap(), &secret_key)?;
+        let (rec, sign) = sign.serialize_compact(&SECP256K1);
+        let mut ret = Vec::new();
+        ret.push(rec.to_i32() as u8);
+        ret.extend(sign.as_ref());
+
+        Ok(to_hex(&ret))
+    }
 }

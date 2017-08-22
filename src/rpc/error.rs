@@ -8,6 +8,7 @@ pub enum Error {
     HexError,
     UnsupportedTrieQuery,
     ECDSAError,
+    AccountNotFound,
 }
 
 impl From<ParseHexError> for Error {
