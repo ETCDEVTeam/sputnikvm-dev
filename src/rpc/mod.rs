@@ -159,6 +159,13 @@ build_rpc_trait! {
         fn transaction_by_block_number_and_index(&self, String, String) -> Result<RPCTransaction, Error>;
         #[rpc(name = "eth_getTransactionReceipt")]
         fn transaction_receipt(&self, String) -> Result<RPCReceipt, Error>;
+        #[rpc(name = "eth_getUncleByBlockHashAndIndex")]
+        fn uncle_by_block_hash_and_index(&self, String, String) -> Result<RPCBlock, Error>;
+        #[rpc(name = "eth_getUncleByBlockNumberAndIndex")]
+        fn uncle_by_block_number_and_index(&self, String, String) -> Result<RPCBlock, Error>;
+
+        #[rpc(name = "eth_getCompilers")]
+        fn compilers(&self) -> Result<Vec<String>, Error>;
     }
 }
 

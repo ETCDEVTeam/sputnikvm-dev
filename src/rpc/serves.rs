@@ -542,4 +542,30 @@ impl EthereumRPC for MinerEthereumRPC {
 
         Ok(to_rpc_receipt(receipt, &transaction, &block))
     }
+
+    fn uncle_by_block_hash_and_index(&self, block_hash: String, index: String) -> Result<RPCBlock, Error> {
+        let index = U256::from_str(&index)?.as_usize();
+        let block_hash = H256::from_str(&block_hash)?;
+        let block = miner::get_block_by_hash(block_hash);
+        let uncle_hash = block.ommers[index].header_hash();
+        let uncle = miner::get_block_by_hash(uncle_hash);
+        let total = miner::get_total_header_by_hash(uncle_hash);
+
+        Ok(to_rpc_block(uncle, total, false))
+    }
+
+    fn uncle_by_block_number_and_index(&self, block_number: String, index: String) -> Result<RPCBlock, Error> {
+        let block_number = from_block_number(Some(block_number))?;
+        let index = U256::from_str(&index)?.as_usize();
+        let block = miner::get_block_by_number(block_number);
+        let uncle_hash = block.ommers[index].header_hash();
+        let uncle = miner::get_block_by_hash(uncle_hash);
+        let total = miner::get_total_header_by_hash(uncle_hash);
+
+        Ok(to_rpc_block(uncle, total, false))
+    }
+
+    fn compilers(&self) -> Result<Vec<String>, Error> {
+        Ok(Vec::new())
+    }
 }
