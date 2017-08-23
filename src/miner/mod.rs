@@ -22,7 +22,7 @@ pub use self::state::{append_pending_transaction,
                       block_height, get_block_by_hash, get_block_by_number, current_block,
                       get_transaction_by_hash, trie_database, accounts, append_account,
                       get_hash_raw, get_total_header_by_hash, get_total_header_by_number,
-                      get_transaction_block_hash_by_hash};
+                      get_transaction_block_hash_by_hash, get_receipt_by_hash};
 
 pub fn call<'a>(
     database: &MemoryDatabase,

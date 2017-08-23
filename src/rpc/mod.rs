@@ -24,6 +24,32 @@ pub enum Either<T, U> {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RPCLog {
+    pub removed: bool,
+    pub log_index: String,
+    pub transaction_index: String,
+    pub transaction_hash: String,
+    pub block_hash: String,
+    pub block_number: String,
+    pub data: String,
+    pub topics: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCReceipt {
+    pub transaction_hash: String,
+    pub transaction_index: String,
+    pub block_hash: String,
+    pub block_number: String,
+    pub cumulative_gas_used: String,
+    pub gas_used: String,
+    pub contract_address: Option<String>,
+    pub logs: Vec<RPCLog>
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RPCBlock {
     pub number: String,
     pub hash: String,

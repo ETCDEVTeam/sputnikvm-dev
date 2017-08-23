@@ -1,10 +1,10 @@
-use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, Error};
+use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, Error};
 use miner;
 
 use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
-use block::{Block, TotalHeader, Account, FromKey, Transaction, UnsignedTransaction, TransactionAction};
+use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction};
 use blockchain::chain::HeaderHash;
 use sputnikvm::vm::{self, ValidTransaction, VM};
 use std::str::FromStr;
@@ -21,6 +21,92 @@ fn from_block_number<T: Into<Option<String>>>(value: T) -> Result<usize, Error> 
     } else {
         let v: u64 = U256::from(read_hex(&value.unwrap())?.as_slice()).into();
         Ok(v as usize)
+    }
+}
+
+fn to_rpc_log(receipt: &Receipt, index: usize, transaction: &Transaction, block: &Block) -> RPCLog {
+    use sha3::{Keccak256, Digest};
+
+    let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
+    let transaction_index = {
+        let mut i = 0;
+        let mut found = false;
+        for transaction in &block.transactions {
+            let other_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
+            if transaction_hash == other_hash {
+                found = true;
+                break;
+            }
+            i += 1;
+        }
+        assert!(found);
+        i
+    };
+
+    RPCLog {
+        removed: false,
+        log_index: format!("0x{:x}", index),
+        transaction_index: format!("0x{:x}", transaction_index),
+        transaction_hash: format!("0x{:x}", transaction_hash),
+        block_hash: format!("0x{:x}", block.header.header_hash()),
+        block_number: format!("0x{:x}", block.header.number),
+        data: to_hex(&receipt.logs[index].data),
+        topics: receipt.logs[index].topics.iter().map(|t| format!("0x{:x}", t)).collect(),
+    }
+}
+
+fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block) -> RPCReceipt {
+    use sha3::{Keccak256, Digest};
+
+    let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
+    let transaction_index = {
+        let mut i = 0;
+        let mut found = false;
+        for transaction in &block.transactions {
+            let other_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
+            if transaction_hash == other_hash {
+                found = true;
+                break;
+            }
+            i += 1;
+        }
+        assert!(found);
+        i
+    };
+
+    let cumulative_gas_used = {
+        let mut sum = Gas::zero();
+
+        for i in 0..(transaction_index + 1) {
+            let other_hash = H256::from(Keccak256::digest(&rlp::encode(&block.transactions[i]).to_vec()).as_slice());
+            sum = sum + miner::get_receipt_by_hash(other_hash).used_gas;
+        }
+        sum
+    };
+
+    let contract_address = {
+        if transaction.action == TransactionAction::Create {
+            Some(transaction.address().unwrap())
+        } else {
+            None
+        }
+    };
+
+    RPCReceipt {
+        transaction_hash: format!("0x{:x}", transaction_hash),
+        transaction_index: format!("0x{:x}", transaction_index),
+        block_hash: format!("0x{:x}", block.header.header_hash()),
+        block_number: format!("0x{:x}", block.header.number),
+        cumulative_gas_used: format!("0x{:x}", cumulative_gas_used),
+        gas_used: format!("0x{:x}", receipt.used_gas),
+        contract_address: contract_address.map(|v| format!("0x{:x}", v)),
+        logs: {
+            let mut ret = Vec::new();
+            for i in 0..receipt.logs.len() {
+                ret.push(to_rpc_log(&receipt, i, transaction, block));
+            }
+            ret
+        },
     }
 }
 
