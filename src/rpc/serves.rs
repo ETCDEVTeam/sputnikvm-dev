@@ -1,10 +1,11 @@
-use super::{EthereumRPC, RPCTransaction, RPCBlock, Error};
+use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, Error};
 use miner;
 
 use rlp::{self, UntrustedRlp};
-use bigint::{M256, U256, H256, Address, Gas};
+use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
-use block::{Account, FromKey, Transaction, UnsignedTransaction, TransactionAction};
+use block::{Block, TotalHeader, Account, FromKey, Transaction, UnsignedTransaction, TransactionAction};
+use blockchain::chain::HeaderHash;
 use sputnikvm::vm::{self, ValidTransaction, VM};
 use std::str::FromStr;
 
@@ -20,6 +21,59 @@ fn from_block_number(value: Trailing<String>) -> Result<usize, Error> {
     } else {
         let v: u64 = U256::from(read_hex(&value.unwrap())?.as_slice()).into();
         Ok(v as usize)
+    }
+}
+
+fn to_rpc_transaction(transaction: Transaction) -> RPCTransaction {
+    RPCTransaction {
+        from: format!("0x{:x}", transaction.caller().unwrap()),
+        to: match transaction.action {
+            TransactionAction::Call(address) =>
+                Some(format!("0x{:x}", address)),
+            TransactionAction::Create => None,
+        },
+        gas: Some(format!("0x{:x}", transaction.gas_limit)),
+        gas_price: Some(format!("0x{:x}", transaction.gas_price)),
+        value: Some(format!("0x{:x}", transaction.value)),
+        data: to_hex(&transaction.input),
+        nonce: Some(format!("0x{:x}", transaction.nonce)),
+    }
+}
+
+fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: bool) -> RPCBlock {
+    use sha3::{Keccak256, Digest};
+    let logs_bloom: H2048 = block.header.logs_bloom.clone().into();
+
+    RPCBlock {
+        number: format!("0x{:x}", block.header.number),
+        hash: format!("0x{:x}", block.header.header_hash()),
+        parent_hash: format!("0x{:x}", block.header.parent_hash()),
+        nonce: format!("0x{:x}", block.header.nonce),
+        sha3_uncles: format!("0x{:x}", block.header.ommers_hash),
+        logs_bloom: format!("0x{:x}", logs_bloom),
+        transactions_root: format!("0x{:x}", block.header.transactions_root),
+        state_root: format!("0x{:x}", block.header.state_root),
+        receipts_root: format!("0x{:x}", block.header.receipts_root),
+        miner: format!("0x{:x}", block.header.beneficiary),
+        difficulty: format!("0x{:x}", block.header.difficulty),
+        total_difficulty: format!("0x{:x}", total_header.total_difficulty()),
+
+        // TODO: change this to the correct one after the Typhoon is over...
+        extra_data: to_hex(&rlp::encode(&block.header.extra_data).to_vec()),
+
+        size: format!("0x{:x}", rlp::encode(&block.header).to_vec().len()),
+        gas_limit: format!("0x{:x}", block.header.gas_limit),
+        gas_used: format!("0x{:x}", block.header.gas_used),
+        timestamp: format!("0x{:x}", block.header.timestamp),
+        transactions: if full_transactions {
+            Either::Right(block.transactions.iter().map(|t| to_rpc_transaction(t.clone())).collect())
+        } else {
+            Either::Left(block.transactions.iter().map(|t| {
+                let encoded = rlp::encode(t).to_vec();
+                format!("0x{:x}", H256::from(Keccak256::digest(&encoded).as_slice()))
+            }).collect())
+        },
+        uncles: block.ommers.iter().map(|u| format!("0x{:x}", u.header_hash())).collect(),
     }
 }
 

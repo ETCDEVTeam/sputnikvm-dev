@@ -41,7 +41,7 @@ pub struct RPCBlock {
     pub gas_limit: String,
     pub gas_used: String,
     pub timestamp: String,
-    pub transactions: Vec<Either<String, RPCTransaction>>,
+    pub transactions: Either<Vec<String>, Vec<RPCTransaction>>,
     pub uncles: Vec<String>,
 }
 
