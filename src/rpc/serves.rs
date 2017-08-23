@@ -11,7 +11,7 @@ use std::str::FromStr;
 
 use jsonrpc_macros::Trailing;
 
-fn from_block_number(value: Trailing<String>) -> Result<usize, Error> {
+fn from_block_number<T: Into<Option<String>>>(value: T) -> Result<usize, Error> {
     let value: Option<String> = value.into();
 
     if value == Some("latest".to_string()) || value == Some("pending".to_string()) || value == None {
@@ -377,6 +377,14 @@ impl EthereumRPC for MinerEthereumRPC {
         let hash = H256::from_str(&hash)?;
         let block = miner::get_block_by_hash(hash);
         let total = miner::get_total_header_by_hash(hash);
+
+        Ok(to_rpc_block(block, total, full))
+    }
+
+    fn block_by_number(&self, number: String, full: bool) -> Result<RPCBlock, Error> {
+        let number = from_block_number(Some(number))?;
+        let block = miner::get_block_by_number(number);
+        let total = miner::get_total_header_by_hash(block.header.header_hash());
 
         Ok(to_rpc_block(block, total, full))
     }
