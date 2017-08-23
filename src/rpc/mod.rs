@@ -23,6 +23,7 @@ pub enum Either<T, U> {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RPCBlock {
     pub number: String,
     pub hash: String,
@@ -55,6 +56,11 @@ pub struct RPCTransaction {
     pub value: Option<String>,
     pub data: String,
     pub nonce: Option<String>,
+
+    pub hash: Option<String>,
+    pub block_hash: Option<String>,
+    pub block_number: Option<String>,
+    pub transaction_index: Option<String>,
 }
 
 build_rpc_trait! {
@@ -119,6 +125,12 @@ build_rpc_trait! {
         fn block_by_hash(&self, String, bool) -> Result<RPCBlock, Error>;
         #[rpc(name = "eth_getBlockByNumber")]
         fn block_by_number(&self, String, bool) -> Result<RPCBlock, Error>;
+        #[rpc(name = "eth_getTransactionByHash")]
+        fn transaction_by_hash(&self, String) -> Result<RPCTransaction, Error>;
+        #[rpc(name = "eth_getTransactionByBlockHashAndIndex")]
+        fn transaction_by_block_hash_and_index(&self, String, String) -> Result<RPCTransaction, Error>;
+        #[rpc(name = "eth_getTransactionByBlockNumberAndIndex")]
+        fn transaction_by_block_number_and_index(&self, String, String) -> Result<RPCTransaction, Error>;
     }
 }
 

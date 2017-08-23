@@ -24,7 +24,10 @@ fn from_block_number<T: Into<Option<String>>>(value: T) -> Result<usize, Error> 
     }
 }
 
-fn to_rpc_transaction(transaction: Transaction) -> RPCTransaction {
+fn to_rpc_transaction(transaction: Transaction, block: Option<&Block>) -> RPCTransaction {
+    use sha3::{Keccak256, Digest};
+    let hash = H256::from(Keccak256::digest(&rlp::encode(&transaction).to_vec()).as_slice());
+
     RPCTransaction {
         from: format!("0x{:x}", transaction.caller().unwrap()),
         to: match transaction.action {
@@ -37,6 +40,32 @@ fn to_rpc_transaction(transaction: Transaction) -> RPCTransaction {
         value: Some(format!("0x{:x}", transaction.value)),
         data: to_hex(&transaction.input),
         nonce: Some(format!("0x{:x}", transaction.nonce)),
+
+        hash: Some(format!("0x{:x}", hash)),
+        block_hash: block.map(|b| format!("0x{:x}", b.header.header_hash())),
+        block_number: block.map(|b| format!("0x{:x}", b.header.number)),
+        transaction_index: {
+            if block.is_some() {
+                let block = block.unwrap();
+                let mut i = 0;
+                let mut found = false;
+                for transaction in &block.transactions {
+                    let other_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
+                    if hash == other_hash {
+                        found = true;
+                        break;
+                    }
+                    i += 1;
+                }
+                if found {
+                    Some(format!("0x{:x}", i))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        },
     }
 }
 
@@ -66,7 +95,7 @@ fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: bool
         gas_used: format!("0x{:x}", block.header.gas_used),
         timestamp: format!("0x{:x}", block.header.timestamp),
         transactions: if full_transactions {
-            Either::Right(block.transactions.iter().map(|t| to_rpc_transaction(t.clone())).collect())
+            Either::Right(block.transactions.iter().map(|t| to_rpc_transaction(t.clone(), Some(&block))).collect())
         } else {
             Either::Left(block.transactions.iter().map(|t| {
                 let encoded = rlp::encode(t).to_vec();
@@ -387,5 +416,33 @@ impl EthereumRPC for MinerEthereumRPC {
         let total = miner::get_total_header_by_hash(block.header.header_hash());
 
         Ok(to_rpc_block(block, total, full))
+    }
+
+    fn transaction_by_hash(&self, hash: String) -> Result<RPCTransaction, Error> {
+        let hash = H256::from_str(&hash)?;
+        let transaction = miner::get_transaction_by_hash(hash);
+        let block = miner::get_transaction_block_hash_by_hash(hash).map(|block_hash| {
+            miner::get_block_by_hash(block_hash)
+        });
+
+        Ok(to_rpc_transaction(transaction, block.as_ref()))
+    }
+
+    fn transaction_by_block_hash_and_index(&self, block_hash: String, index: String) -> Result<RPCTransaction, Error> {
+        let index = U256::from_str(&index)?.as_usize();
+        let block_hash = H256::from_str(&block_hash)?;
+        let block = miner::get_block_by_hash(block_hash);
+        let transaction = block.transactions[index].clone();
+
+        Ok(to_rpc_transaction(transaction, Some(&block)))
+    }
+
+    fn transaction_by_block_number_and_index(&self, number: String, index: String) -> Result<RPCTransaction, Error> {
+        let index = U256::from_str(&index)?.as_usize();
+        let number = U256::from_str(&number)?.as_usize();
+        let block = miner::get_block_by_number(number);
+        let transaction = block.transactions[index].clone();
+
+        Ok(to_rpc_transaction(transaction, Some(&block)))
     }
 }

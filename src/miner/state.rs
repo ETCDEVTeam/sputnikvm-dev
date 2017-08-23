@@ -12,6 +12,7 @@ lazy_static! {
     static ref PENDING_TRANSACTION_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
     static ref CURRENT_BLOCK: Mutex<H256> = Mutex::new(H256::default());
     static ref BLOCK_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
+    static ref TRANSACTION_BLOCK_HASHES: Mutex<HashMap<H256, H256>> = Mutex::new(HashMap::new());
     static ref TOTAL_HEADERS: Mutex<HashMap<H256, TotalHeader>> = Mutex::new(HashMap::new());
     static ref HASH_DATABASE: Mutex<HashMap<H256, Vec<u8>>> = Mutex::new(HashMap::new());
     static ref TRIE_DATABASE: Mutex<MemoryDatabase> = Mutex::new(MemoryDatabase::new());
@@ -56,6 +57,11 @@ pub fn append_block(block: Block) -> H256 {
     let hash = H256::from(Keccak256::digest(&value).as_slice());
     insert_hash_raw(hash, value);
 
+    for transaction in &block.transactions {
+        let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
+        TRANSACTION_BLOCK_HASHES.lock().unwrap().insert(transaction_hash, hash);
+    }
+
     let parent_hash = BLOCK_HASHES.lock().unwrap()[block_height()];
     BLOCK_HASHES.lock().unwrap().push(hash);
     let mut total_headers = TOTAL_HEADERS.lock().unwrap();
@@ -72,6 +78,10 @@ pub fn append_block(block: Block) -> H256 {
 
 pub fn block_height() -> usize {
     BLOCK_HASHES.lock().unwrap().len() - 1
+}
+
+pub fn get_transaction_block_hash_by_hash(key: H256) -> Option<H256> {
+    TRANSACTION_BLOCK_HASHES.lock().unwrap().get(&key).map(|v| v.clone())
 }
 
 pub fn get_block_by_hash(key: H256) -> Block {
