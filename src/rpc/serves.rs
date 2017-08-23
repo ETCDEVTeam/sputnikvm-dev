@@ -374,6 +374,10 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn block_by_hash(&self, hash: String, full: bool) -> Result<RPCBlock, Error> {
-        unimplemented!()
+        let hash = H256::from_str(&hash)?;
+        let block = miner::get_block_by_hash(hash);
+        let total = miner::get_total_header_by_hash(hash);
+
+        Ok(to_rpc_block(block, total, full))
     }
 }
