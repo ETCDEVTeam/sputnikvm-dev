@@ -9,6 +9,7 @@ use std::sync::{Mutex, MutexGuard};
 use std::collections::HashMap;
 
 lazy_static! {
+    static ref ALL_PENDING_TRANSACTION_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
     static ref PENDING_TRANSACTION_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
     static ref CURRENT_BLOCK: Mutex<H256> = Mutex::new(H256::default());
     static ref BLOCK_HASHES: Mutex<Vec<H256>> = Mutex::new(Vec::new());
@@ -25,6 +26,7 @@ pub fn append_pending_transaction(transaction: Transaction) -> H256 {
     insert_hash_raw(hash, value);
 
     PENDING_TRANSACTION_HASHES.lock().unwrap().push(hash);
+    ALL_PENDING_TRANSACTION_HASHES.lock().unwrap().push(hash);
 
     hash
 }
@@ -42,6 +44,10 @@ pub fn clear_pending_transactions() -> Vec<Transaction> {
         transactions.push(rlp::decode(&get_hash_raw(hash)))
     }
     transactions
+}
+
+pub fn all_pending_transaction_hashes() -> Vec<H256> {
+    ALL_PENDING_TRANSACTION_HASHES.lock().unwrap().clone()
 }
 
 pub fn insert_hash_raw(key: H256, value: Vec<u8>) {

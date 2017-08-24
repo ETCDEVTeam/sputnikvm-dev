@@ -10,6 +10,8 @@ use std::net::SocketAddr;
 
 mod serves;
 mod error;
+mod filter;
+mod util;
 
 pub use self::error::Error;
 
@@ -20,6 +22,22 @@ use super::miner;
 pub enum Either<T, U> {
     Left(T),
     Right(U),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum RPCTopicFilter {
+    Single(String),
+    Or(Vec<String>)
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCLogFilter {
+    pub from_block: Option<String>,
+    pub to_block: Option<String>,
+    pub address: Option<String>,
+    pub topics: Option<Vec<Option<RPCTopicFilter>>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -166,11 +184,27 @@ build_rpc_trait! {
 
         #[rpc(name = "eth_getCompilers")]
         fn compilers(&self) -> Result<Vec<String>, Error>;
+
+        #[rpc(name = "eth_newFilter")]
+        fn new_filter(&self, RPCLogFilter) -> Result<String, Error>;
+        #[rpc(name = "eth_newBlockFilter")]
+        fn new_block_filter(&self) -> Result<String, Error>;
+        #[rpc(name = "eth_newPendingTransactionFilter")]
+        fn new_pending_transaction_filter(&self) -> Result<String, Error>;
+        #[rpc(name = "eth_uninstallFilter")]
+        fn uninstall_filter(&self, String) -> Result<bool, Error>;
+
+        #[rpc(name = "eth_getFilterChanges")]
+        fn filter_changes(&self, String) -> Result<Either<Vec<String>, Vec<RPCLog>>, Error>;
+        #[rpc(name = "eth_getFilterLogs")]
+        fn filter_logs(&self, String) -> Result<Vec<RPCLog>, Error>;
+        #[rpc(name = "eth_getLogs")]
+        fn logs(&self, RPCLogFilter) -> Result<Vec<RPCLog>, Error>;
     }
 }
 
 pub fn rpc_loop(addr: &SocketAddr) {
-    let rpc = serves::MinerEthereumRPC;
+    let rpc = serves::MinerEthereumRPC::new();
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());
