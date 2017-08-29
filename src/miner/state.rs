@@ -4,6 +4,7 @@ use trie::{MemoryDatabase, MemoryDatabaseGuard, Trie};
 use bigint::{H256, M256, U256, H64, B256, Gas, Address};
 use sha3::{Digest, Keccak256};
 use secp256k1::key::SecretKey;
+use sputnikvm_stateful::{MemoryStateful};
 
 use std::sync::{Mutex, MutexGuard};
 use std::collections::HashMap;
@@ -16,8 +17,8 @@ lazy_static! {
     static ref TRANSACTION_BLOCK_HASHES: Mutex<HashMap<H256, H256>> = Mutex::new(HashMap::new());
     static ref TOTAL_HEADERS: Mutex<HashMap<H256, TotalHeader>> = Mutex::new(HashMap::new());
     static ref HASH_DATABASE: Mutex<HashMap<H256, Vec<u8>>> = Mutex::new(HashMap::new());
-    static ref TRIE_DATABASE: Mutex<MemoryDatabase> = Mutex::new(MemoryDatabase::new());
     static ref ACCOUNTS: Mutex<Vec<SecretKey>> = Mutex::new(Vec::new());
+    static ref STATEFUL: Mutex<MemoryStateful> = Mutex::new(MemoryStateful::default());
 }
 
 pub fn append_pending_transaction(transaction: Transaction) -> H256 {
@@ -114,12 +115,26 @@ pub fn get_total_header_by_number(index: usize) -> TotalHeader {
     TOTAL_HEADERS.lock().unwrap().get(&BLOCK_HASHES.lock().unwrap()[index]).unwrap().clone()
 }
 
+pub fn get_last_256_block_hashes() -> Vec<H256> {
+    let mut hashes = BLOCK_HASHES.lock().unwrap().clone();
+    let mut ret = Vec::new();
+
+    for _ in 0..256 {
+        match hashes.pop() {
+            Some(val) => ret.push(val),
+            None => break,
+        }
+    }
+
+    ret
+}
+
 pub fn current_block() -> Block {
     get_block_by_number(block_height() - 1)
 }
 
-pub fn trie_database() -> MutexGuard<'static, MemoryDatabase> {
-    TRIE_DATABASE.lock().unwrap()
+pub fn stateful() -> MutexGuard<'static, MemoryStateful> {
+    STATEFUL.lock().unwrap()
 }
 
 pub fn accounts() -> Vec<SecretKey> {
