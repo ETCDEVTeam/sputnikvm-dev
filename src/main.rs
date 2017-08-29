@@ -1,4 +1,5 @@
 extern crate sputnikvm;
+extern crate sputnikvm_stateful;
 extern crate secp256k1;
 extern crate rand;
 extern crate sha3;

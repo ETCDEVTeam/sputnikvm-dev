@@ -8,7 +8,7 @@ use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction};
 use blockchain::chain::HeaderHash;
-use sputnikvm::vm::{self, ValidTransaction, VM};
+use sputnikvm::vm::{self, ValidTransaction, SeqTransactionVM, VM, HeaderParams};
 use std::str::FromStr;
 use std::sync::Mutex;
 
@@ -89,8 +89,8 @@ impl EthereumRPC for MinerEthereumRPC {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
-        let database = miner::trie_database();
-        let trie = database.create_trie(block.header.state_root);
+        let stateful = miner::stateful();
+        let trie = stateful.state_of(block.header.state_root);
 
         let account: Option<Account> = trie.get(&address);
         match account {
@@ -109,14 +109,14 @@ impl EthereumRPC for MinerEthereumRPC {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
-        let database = miner::trie_database();
-        let trie = database.create_trie(block.header.state_root);
+        let stateful = miner::stateful();
+        let trie = stateful.state_of(block.header.state_root);
 
         let account: Option<Account> = trie.get(&address);
         match account {
             Some(account) => {
-                let storage = database.create_trie(account.storage_root);
-                let value = storage.get(&index).unwrap_or(M256::zero());
+                let storage = stateful.storage_state_of(account.storage_root);
+                let value = storage.get(&H256::from(index)).unwrap_or(M256::zero());
                 Ok(format!("0x{:x}", value))
             },
             None => {
@@ -178,8 +178,8 @@ impl EthereumRPC for MinerEthereumRPC {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
-        let database = miner::trie_database();
-        let trie = database.create_trie(block.header.state_root);
+        let stateful = miner::stateful();
+        let trie = stateful.state_of(block.header.state_root);
 
         let account: Option<Account> = trie.get(&address);
         match account {
@@ -246,11 +246,13 @@ impl EthereumRPC for MinerEthereumRPC {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
-        let database = miner::trie_database();
-        let trie = database.create_trie(block.header.state_root);
+        let stateful = miner::stateful();
+        let trie = stateful.state_of(block.header.state_root);
 
-        let valid = miner::to_valid(&database, transaction, &vm::EIP160_PATCH, &trie);
-        let vm = miner::call(&database, &block, valid, &vm::EIP160_PATCH, &trie);
+        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH).unwrap();
+        let vm: SeqTransactionVM = stateful.call(
+            valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
+            &miner::get_last_256_block_hashes());
 
         Ok(to_hex(vm.out()))
     }
@@ -260,11 +262,13 @@ impl EthereumRPC for MinerEthereumRPC {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
-        let database = miner::trie_database();
-        let trie = database.create_trie(block.header.state_root);
+        let stateful = miner::stateful();
+        let trie = stateful.state_of(block.header.state_root);
 
-        let valid = miner::to_valid(&database, transaction, &vm::EIP160_PATCH, &trie);
-        let vm = miner::call(&database, &block, valid, &vm::EIP160_PATCH, &trie);
+        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH).unwrap();
+        let vm: SeqTransactionVM = stateful.call(
+            valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
+            &miner::get_last_256_block_hashes());
 
         Ok(format!("0x{:x}", vm.real_used_gas()))
     }

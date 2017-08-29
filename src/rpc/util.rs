@@ -208,8 +208,8 @@ pub fn to_signed_transaction(transaction: RPCTransaction) -> Result<Transaction,
         }
     };
     let block = miner::get_block_by_number(miner::block_height());
-    let database = miner::trie_database();
-    let trie = database.create_trie(block.header.state_root);
+    let stateful = miner::stateful();
+    let trie = stateful.state_of(block.header.state_root);
 
     let account: Option<Account> = trie.get(&address);
 
