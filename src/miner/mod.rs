@@ -15,6 +15,7 @@ use sputnikvm::vm::errors::RequireError;
 use rand::os::OsRng;
 use sha3::{Digest, Keccak256};
 use blockchain::chain::HeaderHash;
+use hexutil::*;
 
 mod state;
 
@@ -93,6 +94,9 @@ pub fn mine_loop() {
     let secret_key = SecretKey::new(&SECP256K1, &mut rng);
     let address = Address::from_secret_key(&secret_key).unwrap();
     println!("address: {:?}", address);
+    println!("private key: {}", to_hex(&secret_key[..]));
+
+    state::append_account(secret_key);
 
     {
         let mut stateful = state::stateful();
@@ -177,8 +181,6 @@ pub fn mine_loop() {
                                   beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
                                   stateful.root());
             state::append_block(next_block);
-
-            println!("mined a new block: {:?}", state::current_block());
         }
 
         thread::sleep(Duration::from_millis(10000));

@@ -60,25 +60,30 @@ pub fn get_hash_raw(key: H256) -> Vec<u8> {
 }
 
 pub fn append_block(block: Block) -> H256 {
+    let mut block_transaction_hashes = TRANSACTION_BLOCK_HASHES.lock().unwrap();
+    let mut block_hashes = BLOCK_HASHES.lock().unwrap();
+    let mut total_headers = TOTAL_HEADERS.lock().unwrap();
+    let mut current_block = CURRENT_BLOCK.lock().unwrap();
+
     let value = rlp::encode(&block).to_vec();
     let hash = H256::from(Keccak256::digest(&value).as_slice());
     insert_hash_raw(hash, value);
 
     for transaction in &block.transactions {
         let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
-        TRANSACTION_BLOCK_HASHES.lock().unwrap().insert(transaction_hash, hash);
+        block_transaction_hashes.insert(transaction_hash, hash);
     }
 
-    let parent_hash = BLOCK_HASHES.lock().unwrap()[block_height()];
-    BLOCK_HASHES.lock().unwrap().push(hash);
-    let mut total_headers = TOTAL_HEADERS.lock().unwrap();
-    if total_headers.len() == 0 {
+    if block_hashes.len() == 0 {
         total_headers.insert(hash, TotalHeader::from_genesis(block.header.clone()));
     } else {
+        let parent_hash = block_hashes[block_hashes.len() - 1];
         let parent = total_headers.get(&parent_hash).unwrap().clone();
         total_headers.insert(hash, TotalHeader::from_parent(block.header.clone(), &parent));
     }
-    *CURRENT_BLOCK.lock().unwrap() = hash;
+
+    block_hashes.push(hash);
+    *current_block = hash;
 
     hash
 }
@@ -130,7 +135,7 @@ pub fn get_last_256_block_hashes() -> Vec<H256> {
 }
 
 pub fn current_block() -> Block {
-    get_block_by_number(block_height() - 1)
+    get_block_by_number(block_height())
 }
 
 pub fn stateful() -> MutexGuard<'static, MemoryStateful> {

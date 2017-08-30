@@ -31,5 +31,5 @@ fn main() {
         miner::mine_loop();
     });
 
-    rpc::rpc_loop(&"127.0.0.1:9545".parse().unwrap());
+    rpc::rpc_loop(&"127.0.0.1:8545".parse().unwrap());
 }
