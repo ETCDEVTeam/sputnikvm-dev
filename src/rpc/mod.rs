@@ -98,6 +98,7 @@ pub struct RPCTransaction {
     pub gas: Option<String>,
     pub gas_price: Option<String>,
     pub value: Option<String>,
+    #[serde(default)]
     pub data: String,
     pub nonce: Option<String>,
 
