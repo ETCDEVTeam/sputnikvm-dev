@@ -4,6 +4,28 @@
 
 Development environment based on SputnikVM and etcommon.
 
+## Usage
+
+You can either download `svmdev` from the release page, or build it by yourself by installing Rust, and run `cargo run`. We currently support Linux and MacOS, Windows support is work-in-progress.
+
+```
+USAGE:
+    svmdev [OPTIONS]
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -b, --balance <BALANCE>        Balance in Wei for the account to be generated, default is
+                                   0x10000000000000000000000000000.
+    -l, --listen <LISTEN>          Listen address and port for the RPC, e.g. 127.0.0.1:8545
+    -k, --private <PRIVATE_KEY>    Private key for the account to be generated, if not
+                                   provided, a random private key will be generated.
+```
+
+After started, `svmdev` will print out the address and private key with balance for testing. It will then generate new blocks every ten seconds, and inclue all pending transactions that yet to be confirmed. You can then use the RPC endpoints below to test your blockchain application.
+
 ## Supported RPC Endpoints
 
 Below is a list of all the supported RPC endpoints by `sputnikvm-dev`.
