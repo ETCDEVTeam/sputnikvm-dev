@@ -87,11 +87,9 @@ fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
-pub fn mine_loop() {
+pub fn mine_loop(secret_key: SecretKey, balance: U256) {
     let patch = &vm::EIP160_PATCH;
 
-    let mut rng = OsRng::new().unwrap();
-    let secret_key = SecretKey::new(&SECP256K1, &mut rng);
     let address = Address::from_secret_key(&secret_key).unwrap();
     println!("address: {:?}", address);
     println!("private key: {}", to_hex(&secret_key[..]));
@@ -132,7 +130,7 @@ pub fn mine_loop() {
             gas_price: Gas::zero(),
             gas_limit: Gas::from(100000usize),
             action: TransactionAction::Call(address),
-            value: U256::from_str("0x10000000000000000000000000000").unwrap(),
+            value: balance,
             input: Vec::new(),
             nonce: U256::zero(),
         }, HeaderParams::from(&genesis.header), patch, &[]);
