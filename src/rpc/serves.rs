@@ -250,14 +250,12 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn call(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
-        let transaction = to_signed_transaction(transaction)?;
+        let valid = to_valid_transaction(transaction)?;
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
-        let stateful = miner::stateful();
-        let trie = stateful.state_of(block.header.state_root);
 
-        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH)?;
+        let stateful = miner::stateful();
         let vm: SeqTransactionVM = stateful.call(
             valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
             &miner::get_last_256_block_hashes());
@@ -266,14 +264,12 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn estimate_gas(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
-        let transaction = to_signed_transaction(transaction)?;
+        let valid = to_valid_transaction(transaction)?;
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
-        let stateful = miner::stateful();
-        let trie = stateful.state_of(block.header.state_root);
 
-        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH)?;
+        let stateful = miner::stateful();
         let vm: SeqTransactionVM = stateful.call(
             valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
             &miner::get_last_256_block_hashes());
