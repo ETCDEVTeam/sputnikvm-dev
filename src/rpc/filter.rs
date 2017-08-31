@@ -130,19 +130,19 @@ impl FilterManager {
     }
 
     pub fn get_logs(&mut self, id: usize) -> Result<Vec<RPCLog>, Error> {
-        let filter = self.unmodified_filters.get(&id).unwrap();
+        let filter = self.unmodified_filters.get(&id).ok_or(Error::NotFound)?;
 
         match filter {
             &Filter::Log(ref filter) => {
                 let ret = get_logs(filter.clone())?;
                 Ok(ret)
             },
-            _ => panic!(),
+            _ => Err(Error::NotFound),
         }
     }
 
     pub fn get_changes(&mut self, id: usize) -> Result<Either<Vec<String>, Vec<RPCLog>>, Error> {
-        let filter = self.filters.get_mut(&id).unwrap();
+        let filter = self.filters.get_mut(&id).ok_or(Error::NotFound)?;
 
         match filter {
             &mut Filter::PendingTransaction(ref mut next_start) => {
