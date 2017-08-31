@@ -23,6 +23,7 @@ extern crate serde_derive;
 #[macro_use]
 extern crate clap;
 
+mod error;
 mod miner;
 mod rpc;
 

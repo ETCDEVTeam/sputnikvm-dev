@@ -1,5 +1,6 @@
 use jsonrpc_core;
 use secp256k1;
+use sputnikvm::vm::errors::PreExecutionError;
 use rlp::DecoderError;
 use hexutil::ParseHexError;
 
@@ -9,8 +10,15 @@ pub enum Error {
     HexError,
     UnsupportedTrieQuery,
     ECDSAError,
-    AccountNotFound,
-    RlpError
+    NotFound,
+    RlpError,
+    CallError,
+}
+
+impl From<PreExecutionError> for Error {
+    fn from(val: PreExecutionError) -> Error {
+        Error::CallError
+    }
 }
 
 impl From<DecoderError> for Error {

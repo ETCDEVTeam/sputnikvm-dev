@@ -1,5 +1,6 @@
-use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, Error};
+use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter};
 use super::filter::*;
+use error::Error;
 use miner;
 
 use rlp::{self, UntrustedRlp};
@@ -21,7 +22,12 @@ pub fn from_block_number<T: Into<Option<String>>>(value: T) -> Result<usize, Err
         Ok(0)
     } else {
         let v: u64 = U256::from(read_hex(&value.unwrap())?.as_slice()).into();
-        Ok(v as usize)
+        let v = v as usize;
+        if v > miner::block_height() {
+            Err(Error::NotFound)
+        } else {
+            Ok(v)
+        }
     }
 }
 
@@ -56,7 +62,7 @@ pub fn to_rpc_log(receipt: &Receipt, index: usize, transaction: &Transaction, bl
     }
 }
 
-pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block) -> RPCReceipt {
+pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block) -> Result<RPCReceipt, Error> {
     use sha3::{Keccak256, Digest};
 
     let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
@@ -80,7 +86,7 @@ pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block
 
         for i in 0..(transaction_index + 1) {
             let other_hash = H256::from(Keccak256::digest(&rlp::encode(&block.transactions[i]).to_vec()).as_slice());
-            sum = sum + miner::get_receipt_by_hash(other_hash).used_gas;
+            sum = sum + miner::get_receipt_by_hash(other_hash)?.used_gas;
         }
         sum
     };
@@ -93,7 +99,7 @@ pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block
         }
     };
 
-    RPCReceipt {
+    Ok(RPCReceipt {
         transaction_hash: format!("0x{:x}", transaction_hash),
         transaction_index: format!("0x{:x}", transaction_index),
         block_hash: format!("0x{:x}", block.header.header_hash()),
@@ -108,7 +114,7 @@ pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block
             }
             ret
         },
-    }
+    })
 }
 
 pub fn to_rpc_transaction(transaction: Transaction, block: Option<&Block>) -> RPCTransaction {
@@ -204,7 +210,7 @@ pub fn to_signed_transaction(transaction: RPCTransaction) -> Result<Transaction,
         }
         match secret_key {
             Some(val) => val,
-            None => return Err(Error::AccountNotFound),
+            None => return Err(Error::NotFound),
         }
     };
     let block = miner::get_block_by_number(miner::block_height());

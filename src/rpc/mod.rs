@@ -9,12 +9,10 @@ use bigint::H256;
 use std::net::SocketAddr;
 
 mod serves;
-mod error;
 mod filter;
 mod util;
 
-pub use self::error::Error;
-
+use error::Error;
 use super::miner;
 
 #[derive(Serialize, Deserialize, Debug)]
