@@ -6,9 +6,10 @@ use std::str::FromStr;
 use std::collections::HashMap;
 use blockchain::chain::HeaderHash;
 
-use super::{RPCLog, Error, Either};
+use super::{RPCLog, Either};
 use super::util::*;
 
+use error::Error;
 use rlp;
 use miner;
 
@@ -64,7 +65,7 @@ pub fn get_logs(filter: LogFilter) -> Result<Vec<RPCLog>, Error> {
         let block = miner::get_block_by_number(current_block_number);
         for transaction in &block.transactions {
             let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
-            let receipt = miner::get_receipt_by_hash(transaction_hash);
+            let receipt = miner::get_receipt_by_hash(transaction_hash)?;
             for i in 0..receipt.logs.len() {
                 let log = &receipt.logs[i];
                 if check_log(log, 0, &filter.topics[0]) &&
@@ -129,19 +130,19 @@ impl FilterManager {
     }
 
     pub fn get_logs(&mut self, id: usize) -> Result<Vec<RPCLog>, Error> {
-        let filter = self.unmodified_filters.get(&id).unwrap();
+        let filter = self.unmodified_filters.get(&id).ok_or(Error::NotFound)?;
 
         match filter {
             &Filter::Log(ref filter) => {
                 let ret = get_logs(filter.clone())?;
                 Ok(ret)
             },
-            _ => panic!(),
+            _ => Err(Error::NotFound),
         }
     }
 
     pub fn get_changes(&mut self, id: usize) -> Result<Either<Vec<String>, Vec<RPCLog>>, Error> {
-        let filter = self.filters.get_mut(&id).unwrap();
+        let filter = self.filters.get_mut(&id).ok_or(Error::NotFound)?;
 
         match filter {
             &mut Filter::PendingTransaction(ref mut next_start) => {

@@ -1,6 +1,8 @@
-use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, Error};
+use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter};
 use super::util::*;
 use super::filter::*;
+
+use error::Error;
 use miner;
 
 use rlp::{self, UntrustedRlp};
@@ -143,7 +145,7 @@ impl EthereumRPC for MinerEthereumRPC {
 
     fn block_transaction_count_by_hash(&self, block: String) -> Result<Option<String>, Error> {
         let hash = H256::from_str(&block)?;
-        let block = miner::get_block_by_hash(hash);
+        let block = miner::get_block_by_hash(hash)?;
 
         // TODO: handle None case
         Ok(Some(format!("0x{:x}", block.transactions.len())))
@@ -159,7 +161,7 @@ impl EthereumRPC for MinerEthereumRPC {
 
     fn block_uncles_count_by_hash(&self, block: String) -> Result<Option<String>, Error> {
         let hash = H256::from_str(&block)?;
-        let block = miner::get_block_by_hash(hash);
+        let block = miner::get_block_by_hash(hash)?;
 
         // TODO: handle None case
         Ok(Some(format!("0x{:x}", block.ommers.len())))
@@ -184,7 +186,7 @@ impl EthereumRPC for MinerEthereumRPC {
         let account: Option<Account> = trie.get(&address);
         match account {
             Some(account) => {
-                Ok(to_hex(&miner::get_hash_raw(account.code_hash)))
+                Ok(to_hex(&miner::get_hash_raw(account.code_hash)?))
             },
             None => {
                 Ok("".to_string())
@@ -213,7 +215,7 @@ impl EthereumRPC for MinerEthereumRPC {
             }
             match secret_key {
                 Some(val) => val,
-                None => return Err(Error::AccountNotFound),
+                None => return Err(Error::NotFound),
             }
         };
         let sign = SECP256K1.sign_recoverable(&Message::from_slice(&hash).unwrap(), &secret_key)?;
@@ -226,16 +228,22 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn send_transaction(&self, transaction: RPCTransaction) -> Result<String, Error> {
+        let stateful = miner::stateful();
         let transaction = to_signed_transaction(transaction)?;
+
+        stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
 
         let hash = miner::append_pending_transaction(transaction);
         Ok(format!("0x{:x}", hash))
     }
 
     fn send_raw_transaction(&self, data: String) -> Result<String, Error> {
+        let stateful = miner::stateful();
         let data = read_hex(&data)?;
         let rlp = UntrustedRlp::new(&data);
         let transaction: Transaction = rlp.as_val()?;
+
+        stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
 
         let hash = miner::append_pending_transaction(transaction);
         Ok(format!("0x{:x}", hash))
@@ -249,7 +257,7 @@ impl EthereumRPC for MinerEthereumRPC {
         let stateful = miner::stateful();
         let trie = stateful.state_of(block.header.state_root);
 
-        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH).unwrap();
+        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH)?;
         let vm: SeqTransactionVM = stateful.call(
             valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
             &miner::get_last_256_block_hashes());
@@ -265,7 +273,7 @@ impl EthereumRPC for MinerEthereumRPC {
         let stateful = miner::stateful();
         let trie = stateful.state_of(block.header.state_root);
 
-        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH).unwrap();
+        let valid = stateful.to_valid(transaction, &vm::EIP160_PATCH)?;
         let vm: SeqTransactionVM = stateful.call(
             valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
             &miner::get_last_256_block_hashes());
@@ -275,8 +283,8 @@ impl EthereumRPC for MinerEthereumRPC {
 
     fn block_by_hash(&self, hash: String, full: bool) -> Result<RPCBlock, Error> {
         let hash = H256::from_str(&hash)?;
-        let block = miner::get_block_by_hash(hash);
-        let total = miner::get_total_header_by_hash(hash);
+        let block = miner::get_block_by_hash(hash)?;
+        let total = miner::get_total_header_by_hash(hash)?;
 
         Ok(to_rpc_block(block, total, full))
     }
@@ -284,17 +292,18 @@ impl EthereumRPC for MinerEthereumRPC {
     fn block_by_number(&self, number: String, full: bool) -> Result<RPCBlock, Error> {
         let number = from_block_number(Some(number))?;
         let block = miner::get_block_by_number(number);
-        let total = miner::get_total_header_by_hash(block.header.header_hash());
+        let total = miner::get_total_header_by_hash(block.header.header_hash())?;
 
         Ok(to_rpc_block(block, total, full))
     }
 
     fn transaction_by_hash(&self, hash: String) -> Result<RPCTransaction, Error> {
         let hash = H256::from_str(&hash)?;
-        let transaction = miner::get_transaction_by_hash(hash);
-        let block = miner::get_transaction_block_hash_by_hash(hash).map(|block_hash| {
-            miner::get_block_by_hash(block_hash)
-        });
+        let transaction = miner::get_transaction_by_hash(hash)?;
+        let block = match miner::get_transaction_block_hash_by_hash(hash) {
+            Ok(block_hash) => miner::get_block_by_hash(block_hash).ok(),
+            Err(_) => None,
+        };
 
         Ok(to_rpc_transaction(transaction, block.as_ref()))
     }
@@ -302,7 +311,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn transaction_by_block_hash_and_index(&self, block_hash: String, index: String) -> Result<RPCTransaction, Error> {
         let index = U256::from_str(&index)?.as_usize();
         let block_hash = H256::from_str(&block_hash)?;
-        let block = miner::get_block_by_hash(block_hash);
+        let block = miner::get_block_by_hash(block_hash)?;
         let transaction = block.transactions[index].clone();
 
         Ok(to_rpc_transaction(transaction, Some(&block)))
@@ -319,22 +328,27 @@ impl EthereumRPC for MinerEthereumRPC {
 
     fn transaction_receipt(&self, hash: String) -> Result<RPCReceipt, Error> {
         let hash = H256::from_str(&hash)?;
-        let receipt = miner::get_receipt_by_hash(hash);
-        let transaction = miner::get_transaction_by_hash(hash);
-        let block = miner::get_transaction_block_hash_by_hash(hash).map(|block_hash| {
-            miner::get_block_by_hash(block_hash)
-        }).unwrap();
+        let receipt = miner::get_receipt_by_hash(hash)?;
+        let transaction = miner::get_transaction_by_hash(hash)?;
+        let block = match miner::get_transaction_block_hash_by_hash(hash) {
+            Ok(block_hash) => miner::get_block_by_hash(block_hash).ok(),
+            Err(_) => None,
+        };
 
-        Ok(to_rpc_receipt(receipt, &transaction, &block))
+        if block.is_none() {
+            Err(Error::NotFound)
+        } else {
+            Ok(to_rpc_receipt(receipt, &transaction, &block.unwrap())?)
+        }
     }
 
     fn uncle_by_block_hash_and_index(&self, block_hash: String, index: String) -> Result<RPCBlock, Error> {
         let index = U256::from_str(&index)?.as_usize();
         let block_hash = H256::from_str(&block_hash)?;
-        let block = miner::get_block_by_hash(block_hash);
+        let block = miner::get_block_by_hash(block_hash)?;
         let uncle_hash = block.ommers[index].header_hash();
-        let uncle = miner::get_block_by_hash(uncle_hash);
-        let total = miner::get_total_header_by_hash(uncle_hash);
+        let uncle = miner::get_block_by_hash(uncle_hash)?;
+        let total = miner::get_total_header_by_hash(uncle_hash)?;
 
         Ok(to_rpc_block(uncle, total, false))
     }
@@ -344,8 +358,8 @@ impl EthereumRPC for MinerEthereumRPC {
         let index = U256::from_str(&index)?.as_usize();
         let block = miner::get_block_by_number(block_number);
         let uncle_hash = block.ommers[index].header_hash();
-        let uncle = miner::get_block_by_hash(uncle_hash);
-        let total = miner::get_total_header_by_hash(uncle_hash);
+        let uncle = miner::get_block_by_hash(uncle_hash)?;
+        let total = miner::get_total_header_by_hash(uncle_hash)?;
 
         Ok(to_rpc_block(uncle, total, false))
     }

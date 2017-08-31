@@ -1,4 +1,6 @@
 use rlp;
+
+use error::Error;
 use block::{Receipt, Block, TotalHeader, UnsignedTransaction, Transaction, TransactionAction, Log, FromKey, Header, Account};
 use trie::{MemoryDatabase, MemoryDatabaseGuard, Trie};
 use bigint::{H256, M256, U256, H64, B256, Gas, Address};
@@ -42,7 +44,7 @@ pub fn clear_pending_transactions() -> Vec<Transaction> {
 
     let mut transactions = Vec::new();
     for hash in transaction_hashes {
-        transactions.push(rlp::decode(&get_hash_raw(hash)))
+        transactions.push(rlp::decode(&get_hash_raw(hash).unwrap()))
     }
     transactions
 }
@@ -55,8 +57,8 @@ pub fn insert_hash_raw(key: H256, value: Vec<u8>) {
     HASH_DATABASE.lock().unwrap().insert(key, value);
 }
 
-pub fn get_hash_raw(key: H256) -> Vec<u8> {
-    HASH_DATABASE.lock().unwrap().get(&key).unwrap().clone()
+pub fn get_hash_raw(key: H256) -> Result<Vec<u8>, Error> {
+    HASH_DATABASE.lock().unwrap().get(&key).map(|v| v.clone()).ok_or(Error::NotFound)
 }
 
 pub fn append_block(block: Block) -> H256 {
@@ -92,32 +94,35 @@ pub fn block_height() -> usize {
     BLOCK_HASHES.lock().unwrap().len() - 1
 }
 
-pub fn get_transaction_block_hash_by_hash(key: H256) -> Option<H256> {
-    TRANSACTION_BLOCK_HASHES.lock().unwrap().get(&key).map(|v| v.clone())
+pub fn get_transaction_block_hash_by_hash(key: H256) -> Result<H256, Error> {
+    TRANSACTION_BLOCK_HASHES.lock().unwrap().get(&key).map(|v| v.clone()).ok_or(Error::NotFound)
 }
 
-pub fn get_block_by_hash(key: H256) -> Block {
-    rlp::decode(&get_hash_raw(key))
+pub fn get_block_by_hash(key: H256) -> Result<Block, Error> {
+    let v: Vec<u8> = get_hash_raw(key)?;
+    Ok(rlp::decode(&v))
 }
 
-pub fn get_transaction_by_hash(key: H256) -> Transaction {
-    rlp::decode(&get_hash_raw(key))
+pub fn get_transaction_by_hash(key: H256) -> Result<Transaction, Error> {
+    let v: Vec<u8> = get_hash_raw(key)?;
+    Ok(rlp::decode(&v))
 }
 
-pub fn get_receipt_by_hash(key: H256) -> Receipt {
-    rlp::decode(&get_hash_raw(key))
+pub fn get_receipt_by_hash(key: H256) -> Result<Receipt, Error> {
+    let v: Vec<u8> = get_hash_raw(key)?;
+    Ok(rlp::decode(&v))
 }
 
 pub fn get_block_by_number(index: usize) -> Block {
-    rlp::decode(&get_hash_raw(BLOCK_HASHES.lock().unwrap()[index]))
+    rlp::decode(&get_hash_raw(BLOCK_HASHES.lock().unwrap()[index]).unwrap())
 }
 
-pub fn get_total_header_by_hash(key: H256) -> TotalHeader {
-    TOTAL_HEADERS.lock().unwrap().get(&key).unwrap().clone()
+pub fn get_total_header_by_hash(key: H256) -> Result<TotalHeader, Error> {
+    TOTAL_HEADERS.lock().unwrap().get(&key).map(|v| v.clone()).ok_or(Error::NotFound)
 }
 
 pub fn get_total_header_by_number(index: usize) -> TotalHeader {
-    TOTAL_HEADERS.lock().unwrap().get(&BLOCK_HASHES.lock().unwrap()[index]).unwrap().clone()
+    TOTAL_HEADERS.lock().unwrap().get(&BLOCK_HASHES.lock().unwrap()[index]).map(|v| v.clone()).unwrap()
 }
 
 pub fn get_last_256_block_hashes() -> Vec<H256> {
