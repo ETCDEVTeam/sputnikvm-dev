@@ -324,9 +324,13 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(to_rpc_transaction(transaction, Some(&block)))
     }
 
-    fn transaction_receipt(&self, hash: String) -> Result<RPCReceipt, Error> {
+    fn transaction_receipt(&self, hash: String) -> Result<Option<RPCReceipt>, Error> {
         let hash = H256::from_str(&hash)?;
-        let receipt = miner::get_receipt_by_transaction_hash(hash)?;
+        let receipt = match miner::get_receipt_by_transaction_hash(hash) {
+            Ok(receipt) => receipt,
+            Err(_) => return Ok(None),
+        };
+
         let transaction = miner::get_transaction_by_hash(hash)?;
         let block = match miner::get_transaction_block_hash_by_hash(hash) {
             Ok(block_hash) => miner::get_block_by_hash(block_hash).ok(),
@@ -336,7 +340,7 @@ impl EthereumRPC for MinerEthereumRPC {
         if block.is_none() {
             Err(Error::NotFound)
         } else {
-            Ok(to_rpc_receipt(receipt, &transaction, &block.unwrap())?)
+            Ok(Some(to_rpc_receipt(receipt, &transaction, &block.unwrap())?))
         }
     }
 
