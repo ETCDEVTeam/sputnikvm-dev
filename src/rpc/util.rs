@@ -250,6 +250,45 @@ pub fn to_signed_transaction(transaction: RPCTransaction) -> Result<Transaction,
     Ok(transaction)
 }
 
+pub fn to_valid_transaction(transaction: RPCTransaction) -> Result<ValidTransaction, Error> {
+    let address = Address::from_str(&transaction.from)?;
+
+    let block = miner::get_block_by_number(miner::block_height());
+    let stateful = miner::stateful();
+    let trie = stateful.state_of(block.header.state_root);
+
+    let account: Option<Account> = trie.get(&address);
+
+    let valid = ValidTransaction {
+        nonce: match transaction.nonce {
+            Some(val) => U256::from_str(&val)?,
+            None => {
+                account.as_ref().map(|account| account.nonce).unwrap_or(U256::zero())
+            }
+        },
+        gas_price: match transaction.gas_price {
+            Some(val) => Gas::from_str(&val)?,
+            None => Gas::zero(),
+        },
+        gas_limit: match transaction.gas {
+            Some(val) => Gas::from_str(&val)?,
+            None => Gas::from(90000u64),
+        },
+        action: match transaction.to {
+            Some(val) => TransactionAction::Call(Address::from_str(&val)?),
+            None => TransactionAction::Create,
+        },
+        value: match transaction.value {
+            Some(val) => U256::from_str(&val)?,
+            None => U256::zero(),
+        },
+        input: read_hex(&transaction.data)?,
+        caller: Some(address),
+    };
+
+    Ok(valid)
+}
+
 pub fn from_topic_filter(filter: Option<RPCTopicFilter>) -> Result<TopicFilter, Error> {
     Ok(match filter {
         None => TopicFilter::All,
