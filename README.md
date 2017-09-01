@@ -24,7 +24,7 @@ OPTIONS:
                                    provided, a random private key will be generated.
 ```
 
-After started, `svmdev` will print out the address and private key with balance for testing. It will then generate new blocks every ten seconds, and inclue all pending transactions that yet to be confirmed. You can then use the RPC endpoints below to test your blockchain application.
+After started, `svmdev` will print out the address and private key with balance for testing. It will then generate new blocks every ten seconds, and include all pending transactions that yet to be confirmed. You can then use the RPC endpoints below to test your blockchain application.
 
 ## Supported RPC Endpoints
 
