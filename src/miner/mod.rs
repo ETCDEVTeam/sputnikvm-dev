@@ -10,6 +10,7 @@ use std::thread;
 use std::str::FromStr;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::mpsc::{channel, Sender, Receiver};
 use sputnikvm::vm::{self, ValidTransaction, Patch, AccountCommitment, AccountState, HeaderParams, SeqTransactionVM, VM};
 use sputnikvm::vm::errors::RequireError;
 use rand::os::OsRng;
@@ -86,7 +87,7 @@ fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
-pub fn mine_loop(secret_key: SecretKey, balance: U256) {
+pub fn mine_loop(secret_key: SecretKey, balance: U256, channel: Receiver<bool>) {
     let patch = &vm::EIP160_PATCH;
 
     let address = Address::from_secret_key(&secret_key).unwrap();
@@ -136,48 +137,50 @@ pub fn mine_loop(secret_key: SecretKey, balance: U256) {
     }
 
     loop {
-        {
-            let mut stateful = state::stateful();
+        mine_one(address, patch);
 
-            let current_block = state::current_block();
-            let transactions = state::clear_pending_transactions();
-            let block_hashes = state::get_last_256_block_hashes();
+        channel.recv_timeout(Duration::new(10, 0));
+    }
+}
 
-            let beneficiary = address;
+pub fn mine_one(address: Address, patch: &'static Patch) {
+    let mut stateful = state::stateful();
 
-            let mut receipts = Vec::new();
+    let current_block = state::current_block();
+    let transactions = state::clear_pending_transactions();
+    let block_hashes = state::get_last_256_block_hashes();
 
-            for transaction in transactions.clone() {
-                let valid = stateful.to_valid(transaction, patch).unwrap();
-                let vm: SeqTransactionVM = stateful.execute(
-                    valid, HeaderParams::from(&current_block.header),
-                    patch, &block_hashes);
+    let beneficiary = address;
 
-                let logs: Vec<Log> = vm.logs().into();
-                let used_gas = vm.real_used_gas();
-                let mut logs_bloom = LogsBloom::new();
-                for log in logs.clone() {
-                    logs_bloom.set(&log.address);
-                    for topic in log.topics {
-                        logs_bloom.set(&topic)
-                    }
-                }
+    let mut receipts = Vec::new();
 
-                let receipt = Receipt {
-                    used_gas: used_gas.clone(),
-                    logs,
-                    logs_bloom: logs_bloom.clone(),
-                    state_root: stateful.root(),
-                };
-                receipts.push(receipt);
+    for transaction in transactions.clone() {
+        let valid = stateful.to_valid(transaction, patch).unwrap();
+        let vm: SeqTransactionVM = stateful.execute(
+            valid, HeaderParams::from(&current_block.header),
+            patch, &block_hashes);
+
+        let logs: Vec<Log> = vm.logs().into();
+        let used_gas = vm.real_used_gas();
+        let mut logs_bloom = LogsBloom::new();
+        for log in logs.clone() {
+            logs_bloom.set(&log.address);
+            for topic in log.topics {
+                logs_bloom.set(&topic)
             }
-
-            let next_block = next(&current_block, transactions.as_ref(), receipts.as_ref(),
-                                  beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
-                                  stateful.root());
-            state::append_block(next_block);
         }
 
-        thread::sleep(Duration::from_millis(10000));
+        let receipt = Receipt {
+            used_gas: used_gas.clone(),
+            logs,
+            logs_bloom: logs_bloom.clone(),
+            state_root: stateful.root(),
+        };
+        receipts.push(receipt);
     }
+
+    let next_block = next(&current_block, transactions.as_ref(), receipts.as_ref(),
+                          beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
+                          stateful.root());
+    state::append_block(next_block);
 }

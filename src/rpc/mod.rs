@@ -7,6 +7,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
 use bigint::H256;
 use std::net::SocketAddr;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 mod serves;
 mod filter;
@@ -202,8 +203,8 @@ build_rpc_trait! {
     }
 }
 
-pub fn rpc_loop(addr: &SocketAddr) {
-    let rpc = serves::MinerEthereumRPC::new();
+pub fn rpc_loop(addr: &SocketAddr, channel: Sender<bool>) {
+    let rpc = serves::MinerEthereumRPC::new(channel);
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());

@@ -37,6 +37,7 @@ use bigint::U256;
 use hexutil::*;
 use std::thread;
 use std::str::FromStr;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 fn main() {
     env_logger::init();
@@ -66,9 +67,12 @@ fn main() {
         }
     };
 
+    let (sender, receiver) = channel::<bool>();
+
     thread::spawn(move || {
-        miner::mine_loop(secret_key, balance);
+        miner::mine_loop(secret_key, balance, receiver);
     });
 
-    rpc::rpc_loop(&matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap());
+    rpc::rpc_loop(&matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
+                  sender);
 }
