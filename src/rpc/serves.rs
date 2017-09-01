@@ -186,7 +186,7 @@ impl EthereumRPC for MinerEthereumRPC {
         let account: Option<Account> = trie.get(&address);
         match account {
             Some(account) => {
-                Ok(to_hex(&miner::get_hash_raw(account.code_hash)?))
+                Ok(to_hex(&stateful.code(account.code_hash).unwrap()))
             },
             None => {
                 Ok("".to_string())
@@ -229,7 +229,7 @@ impl EthereumRPC for MinerEthereumRPC {
 
     fn send_transaction(&self, transaction: RPCTransaction) -> Result<String, Error> {
         let stateful = miner::stateful();
-        let transaction = to_signed_transaction(transaction)?;
+        let transaction = to_signed_transaction(transaction, &stateful)?;
 
         stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
 
@@ -250,12 +250,13 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn call(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
-        let valid = to_valid_transaction(transaction)?;
+        let stateful = miner::stateful();
+
+        let valid = to_valid_transaction(transaction, &stateful)?;
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
 
-        let stateful = miner::stateful();
         let vm: SeqTransactionVM = stateful.call(
             valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
             &miner::get_last_256_block_hashes());
@@ -264,12 +265,13 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn estimate_gas(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
-        let valid = to_valid_transaction(transaction)?;
+        let stateful = miner::stateful();
+
+        let valid = to_valid_transaction(transaction, &stateful)?;
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
 
-        let stateful = miner::stateful();
         let vm: SeqTransactionVM = stateful.call(
             valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
             &miner::get_last_256_block_hashes());
@@ -322,9 +324,13 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(to_rpc_transaction(transaction, Some(&block)))
     }
 
-    fn transaction_receipt(&self, hash: String) -> Result<RPCReceipt, Error> {
+    fn transaction_receipt(&self, hash: String) -> Result<Option<RPCReceipt>, Error> {
         let hash = H256::from_str(&hash)?;
-        let receipt = miner::get_receipt_by_hash(hash)?;
+        let receipt = match miner::get_receipt_by_transaction_hash(hash) {
+            Ok(receipt) => receipt,
+            Err(_) => return Ok(None),
+        };
+
         let transaction = miner::get_transaction_by_hash(hash)?;
         let block = match miner::get_transaction_block_hash_by_hash(hash) {
             Ok(block_hash) => miner::get_block_by_hash(block_hash).ok(),
@@ -334,7 +340,7 @@ impl EthereumRPC for MinerEthereumRPC {
         if block.is_none() {
             Err(Error::NotFound)
         } else {
-            Ok(to_rpc_receipt(receipt, &transaction, &block.unwrap())?)
+            Ok(Some(to_rpc_receipt(receipt, &transaction, &block.unwrap())?))
         }
     }
 

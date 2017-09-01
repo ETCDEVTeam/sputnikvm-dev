@@ -22,6 +22,9 @@ extern crate serde_json;
 extern crate serde_derive;
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
 mod error;
 mod miner;
@@ -36,6 +39,7 @@ use std::thread;
 use std::str::FromStr;
 
 fn main() {
+    env_logger::init();
     let mut rng = OsRng::new().unwrap();
 
     let matches = clap_app!(

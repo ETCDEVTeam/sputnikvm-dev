@@ -4,6 +4,7 @@ version = "0.1.0"
 dependencies = [
  "blockchain 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "etcommon-bigint 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "etcommon-block 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "etcommon-bloom 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -14,6 +15,7 @@ dependencies = [
  "jsonrpc-http-server-plus 7.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-macros-plus 7.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "secp256k1-plus 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -21,7 +23,7 @@ dependencies = [
  "serde_json 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha3 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sputnikvm 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sputnikvm-stateful 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sputnikvm-stateful 0.6.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -161,6 +163,15 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "heapsize 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -730,7 +741,7 @@ dependencies = [
 
 [[package]]
 name = "sputnikvm-stateful"
-version = "0.6.5"
+version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "etcommon-block 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -953,6 +964,7 @@ dependencies = [
 "checksum digest 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "e5b29bf156f3f4b3c4f610a25ff69370616ae6e0657d416de22645483e72af0a"
 "checksum dtoa 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "09c3753c3db574d215cba4ea76018483895d7bff25a31b49ba45db21c48e50ab"
 "checksum elastic-array 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "258ff6a9a94f648d0379dbd79110e057edbb53eb85cc237e33eadf8e5a30df85"
+"checksum env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "3ddf21e73e016298f5cb37d6ef8e8da8e39f91f9ec8b0df44b7deb16a9f8cd5b"
 "checksum etcommon-bigint 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "55d7e2cc47e6d69bef8447ba4a89b2817276a6d5b1859eeb93bc2d03879edb6f"
 "checksum etcommon-block 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8199bb1c6bf1a3628fabe097bca5693a66e0c16d0389fc9e026d180ab20f3e74"
 "checksum etcommon-bloom 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "43844778eb139dc011f9e11abd509befd4075d42e7f6875a64b7a522511278af"
@@ -1019,7 +1031,7 @@ dependencies = [
 "checksum smallvec 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4c8cbcd6df1e117c2210e13ab5109635ad68a929fcbb8964dc965b76cb5ee013"
 "checksum smallvec 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "8fcd03faf178110ab0334d74ca9631d77f94c8c11cc77fcb59538abf0025695d"
 "checksum sputnikvm 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7893df34177b0188ec75ff4f040d1ff521241702ac30d2fd24a144433af65c26"
-"checksum sputnikvm-stateful 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "f8fcc20b487a5b4dc1dea3fb3d6ab39a91fd7360d04797efe6757f6e210d8577"
+"checksum sputnikvm-stateful 0.6.7 (registry+https://github.com/rust-lang/crates.io-index)" = "0ecec1a49b6cb884f2e50be78211ee27978ed8ea58f6a0abb50bc65c826cd4f3"
 "checksum stable_deref_trait 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "15132e0e364248108c5e2c02e3ab539be8d6f5d52a01ca9bbf27ed657316f02b"
 "checksum strsim 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b4d15c810519a91cf877e7e36e63fe068815c678181439f2f29e2562147c3694"
 "checksum syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d3b891b9015c88c576343b9b3e41c2c11a51c219ef067b264bd9c8aa9b441dad"

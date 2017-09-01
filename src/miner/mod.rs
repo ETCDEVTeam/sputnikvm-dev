@@ -22,8 +22,8 @@ mod state;
 pub use self::state::{append_pending_transaction,
                       block_height, get_block_by_hash, get_block_by_number, current_block,
                       get_transaction_by_hash, stateful, accounts, append_account,
-                      get_hash_raw, get_total_header_by_hash, get_total_header_by_number,
-                      get_transaction_block_hash_by_hash, get_receipt_by_hash,
+                      get_total_header_by_hash, get_total_header_by_number,
+                      get_transaction_block_hash_by_hash, get_receipt_by_transaction_hash,
                       all_pending_transaction_hashes, get_last_256_block_hashes};
 
 fn next<'a>(
@@ -48,8 +48,7 @@ fn next<'a>(
         transactions_trie.insert(rlp::encode(&i).to_vec(), transaction_rlp.clone());
         receipts_trie.insert(rlp::encode(&i).to_vec(), receipt_rlp.clone());
 
-        state::insert_hash_raw(transaction_hash, transaction_rlp);
-        state::insert_hash_raw(receipt_hash, receipt_rlp);
+        state::insert_receipt(transaction_hash, receipts[i].clone());
 
         logs_bloom = logs_bloom | receipts[i].logs_bloom.clone();
         gas_used = gas_used + receipts[i].used_gas.clone();
@@ -98,8 +97,6 @@ pub fn mine_loop(secret_key: SecretKey, balance: U256) {
 
     {
         let mut stateful = state::stateful();
-
-        state::insert_hash_raw(H256::from(Keccak256::digest(&[]).as_slice()), Vec::new());
 
         let genesis = Block {
             header: Header {

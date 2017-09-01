@@ -9,6 +9,7 @@ use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction};
 use blockchain::chain::HeaderHash;
 use sputnikvm::vm::{self, ValidTransaction, VM};
+use sputnikvm_stateful::MemoryStateful;
 use std::str::FromStr;
 
 use jsonrpc_macros::Trailing;
@@ -86,7 +87,7 @@ pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block
 
         for i in 0..(transaction_index + 1) {
             let other_hash = H256::from(Keccak256::digest(&rlp::encode(&block.transactions[i]).to_vec()).as_slice());
-            sum = sum + miner::get_receipt_by_hash(other_hash)?.used_gas;
+            sum = sum + miner::get_receipt_by_transaction_hash(other_hash)?.used_gas;
         }
         sum
     };
@@ -199,7 +200,7 @@ pub fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: 
     }
 }
 
-pub fn to_signed_transaction(transaction: RPCTransaction) -> Result<Transaction, Error> {
+pub fn to_signed_transaction(transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<Transaction, Error> {
     let address = Address::from_str(&transaction.from)?;
     let secret_key = {
         let mut secret_key = None;
@@ -214,7 +215,6 @@ pub fn to_signed_transaction(transaction: RPCTransaction) -> Result<Transaction,
         }
     };
     let block = miner::get_block_by_number(miner::block_height());
-    let stateful = miner::stateful();
     let trie = stateful.state_of(block.header.state_root);
 
     let account: Option<Account> = trie.get(&address);
@@ -250,11 +250,10 @@ pub fn to_signed_transaction(transaction: RPCTransaction) -> Result<Transaction,
     Ok(transaction)
 }
 
-pub fn to_valid_transaction(transaction: RPCTransaction) -> Result<ValidTransaction, Error> {
+pub fn to_valid_transaction(transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<ValidTransaction, Error> {
     let address = Address::from_str(&transaction.from)?;
 
     let block = miner::get_block_by_number(miner::block_height());
-    let stateful = miner::stateful();
     let trie = stateful.state_of(block.header.state_root);
 
     let account: Option<Account> = trie.get(&address);
