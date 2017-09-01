@@ -5,6 +5,7 @@ use block::{Receipt, Block, TotalHeader, UnsignedTransaction, Transaction, Trans
 use trie::{MemoryDatabase, MemoryDatabaseGuard, Trie};
 use bigint::{H256, M256, U256, H64, B256, Gas, Address};
 use sha3::{Digest, Keccak256};
+use blockchain::chain::HeaderHash;
 use secp256k1::key::SecretKey;
 use sputnikvm_stateful::{MemoryStateful};
 
@@ -68,7 +69,7 @@ pub fn append_block(block: Block) -> H256 {
     let mut current_block = CURRENT_BLOCK.lock().unwrap();
 
     let value = rlp::encode(&block).to_vec();
-    let hash = H256::from(Keccak256::digest(&value).as_slice());
+    let hash = block.header.header_hash();
     insert_hash_raw(hash, value);
 
     for transaction in &block.transactions {
