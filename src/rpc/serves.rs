@@ -410,7 +410,9 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn logs(&self, log: RPCLogFilter) -> Result<Vec<RPCLog>, Error> {
-        let filter = from_log_filter(log)?;
-        Ok(get_logs(filter)?)
+        match from_log_filter(log) {
+            Ok(filter) => Ok(get_logs(filter)?),
+            Err(_) => Ok(Vec::new()),
+        }
     }
 }

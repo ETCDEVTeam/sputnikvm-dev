@@ -16,7 +16,7 @@ mod util;
 use error::Error;
 use super::miner;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Either<T, U> {
     Left(T),
@@ -30,7 +30,7 @@ pub enum RPCTopicFilter {
     Or(Vec<String>)
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCLogFilter {
     pub from_block: Option<String>,
@@ -39,7 +39,7 @@ pub struct RPCLogFilter {
     pub topics: Option<Vec<Option<RPCTopicFilter>>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCLog {
     pub removed: bool,
@@ -52,7 +52,7 @@ pub struct RPCLog {
     pub topics: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCReceipt {
     pub transaction_hash: String,
@@ -65,7 +65,7 @@ pub struct RPCReceipt {
     pub logs: Vec<RPCLog>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCBlock {
     pub number: String,
@@ -89,7 +89,7 @@ pub struct RPCBlock {
     pub uncles: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCTransaction {
     pub from: String,

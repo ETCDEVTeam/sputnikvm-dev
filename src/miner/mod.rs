@@ -87,19 +87,13 @@ fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
-pub fn mine_loop(secret_key: SecretKey, balance: U256, channel: Receiver<bool>) {
+pub fn mine_loop(genesis_accounts: Vec<(SecretKey, U256)>, channel: Receiver<bool>) {
     let patch = &vm::EIP160_PATCH;
-
-    let address = Address::from_secret_key(&secret_key).unwrap();
-    println!("address: {:?}", address);
-    println!("private key: {}", to_hex(&secret_key[..]));
-
-    state::append_account(secret_key);
 
     {
         let mut stateful = state::stateful();
 
-        let genesis = Block {
+        let mut genesis = Block {
             header: Header {
                 parent_hash: H256::default(),
                 // TODO: use the known good result from etclient
@@ -123,21 +117,31 @@ pub fn mine_loop(secret_key: SecretKey, balance: U256, channel: Receiver<bool>) 
             ommers: Vec::new(),
         };
 
-        let _: SeqTransactionVM = stateful.execute(ValidTransaction {
-            caller: None,
-            gas_price: Gas::zero(),
-            gas_limit: Gas::from(100000usize),
-            action: TransactionAction::Call(address),
-            value: balance,
-            input: Vec::new(),
-            nonce: U256::zero(),
-        }, HeaderParams::from(&genesis.header), patch, &[]);
+        for (secret_key, balance) in genesis_accounts {
+            let address = Address::from_secret_key(&secret_key).unwrap();
 
+            let vm: SeqTransactionVM = stateful.execute(ValidTransaction {
+                caller: None,
+                gas_price: Gas::zero(),
+                gas_limit: Gas::from(100000usize),
+                action: TransactionAction::Call(address),
+                value: balance,
+                input: Vec::new(),
+                nonce: U256::zero(),
+            }, HeaderParams::from(&genesis.header), patch, &[]);
+
+            println!("address: {:?}", address);
+            println!("private key: {}", to_hex(&secret_key[..]));
+
+            state::append_account(secret_key);
+        }
+
+        genesis.header.state_root = stateful.root();
         state::append_block(genesis);
     }
 
     loop {
-        mine_one(address, patch);
+        mine_one(Address::default(), patch);
 
         channel.recv_timeout(Duration::new(10, 0));
     }
@@ -182,5 +186,6 @@ pub fn mine_one(address: Address, patch: &'static Patch) {
     let next_block = next(&current_block, transactions.as_ref(), receipts.as_ref(),
                           beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
                           stateful.root());
+    debug!("block number: 0x{:x}", next_block.header.number);
     state::append_block(next_block);
 }
