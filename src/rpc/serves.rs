@@ -13,17 +13,22 @@ use blockchain::chain::HeaderHash;
 use sputnikvm::vm::{self, ValidTransaction, SeqTransactionVM, VM, HeaderParams};
 use std::str::FromStr;
 use std::sync::Mutex;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 use jsonrpc_macros::Trailing;
 
 pub struct MinerEthereumRPC {
     filter: Mutex<FilterManager>,
+    channel: Sender<bool>,
 }
 
+unsafe impl Sync for MinerEthereumRPC { }
+
 impl MinerEthereumRPC {
-    pub fn new() -> Self {
+    pub fn new(channel: Sender<bool>) -> Self {
         MinerEthereumRPC {
             filter: Mutex::new(FilterManager::new()),
+            channel,
         }
     }
 }
@@ -234,6 +239,7 @@ impl EthereumRPC for MinerEthereumRPC {
         stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
 
         let hash = miner::append_pending_transaction(transaction);
+        self.channel.send(true);
         Ok(format!("0x{:x}", hash))
     }
 
@@ -246,6 +252,7 @@ impl EthereumRPC for MinerEthereumRPC {
         stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
 
         let hash = miner::append_pending_transaction(transaction);
+        self.channel.send(true);
         Ok(format!("0x{:x}", hash))
     }
 
@@ -403,7 +410,9 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn logs(&self, log: RPCLogFilter) -> Result<Vec<RPCLog>, Error> {
-        let filter = from_log_filter(log)?;
-        Ok(get_logs(filter)?)
+        match from_log_filter(log) {
+            Ok(filter) => Ok(get_logs(filter)?),
+            Err(_) => Ok(Vec::new()),
+        }
     }
 }

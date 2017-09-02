@@ -7,6 +7,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
 use bigint::H256;
 use std::net::SocketAddr;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 mod serves;
 mod filter;
@@ -15,7 +16,7 @@ mod util;
 use error::Error;
 use super::miner;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Either<T, U> {
     Left(T),
@@ -29,7 +30,7 @@ pub enum RPCTopicFilter {
     Or(Vec<String>)
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCLogFilter {
     pub from_block: Option<String>,
@@ -38,7 +39,7 @@ pub struct RPCLogFilter {
     pub topics: Option<Vec<Option<RPCTopicFilter>>>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCLog {
     pub removed: bool,
@@ -51,7 +52,7 @@ pub struct RPCLog {
     pub topics: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCReceipt {
     pub transaction_hash: String,
@@ -64,7 +65,7 @@ pub struct RPCReceipt {
     pub logs: Vec<RPCLog>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCBlock {
     pub number: String,
@@ -88,7 +89,7 @@ pub struct RPCBlock {
     pub uncles: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCTransaction {
     pub from: String,
@@ -202,8 +203,8 @@ build_rpc_trait! {
     }
 }
 
-pub fn rpc_loop(addr: &SocketAddr) {
-    let rpc = serves::MinerEthereumRPC::new();
+pub fn rpc_loop(addr: &SocketAddr, channel: Sender<bool>) {
+    let rpc = serves::MinerEthereumRPC::new(channel);
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());
