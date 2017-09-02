@@ -17,11 +17,10 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -b, --balance <BALANCE>        Balance in Wei for the account to be generated, default is
-                                   0x10000000000000000000000000000.
-    -l, --listen <LISTEN>          Listen address and port for the RPC, e.g. 127.0.0.1:8545
-    -k, --private <PRIVATE_KEY>    Private key for the account to be generated, if not
-                                   provided, a random private key will be generated.
+    -a, --accounts <ACCOUNTS>      Additional accounts to be generated, default to 9.
+    -b, --balance <BALANCE>        Balance in Wei for the account to be generated, default is 0x10000000000000000000000000000.
+    -l, --listen <LISTEN>          Listen address and port for the RPC, e.g. 127.0.0.1:8545.
+    -k, --private <PRIVATE_KEY>    Private key for the account to be generated, if not provided, a random private key will be generated.
 ```
 
 After started, `svmdev` will print out the address and private key with balance for testing. It will then generate new blocks every ten seconds, and inclue all pending transactions that yet to be confirmed. You can then use the RPC endpoints below to test your blockchain application.
