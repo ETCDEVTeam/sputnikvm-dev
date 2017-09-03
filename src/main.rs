@@ -50,8 +50,8 @@ fn main() {
             (about: "SputnikVM Development Environment, a replacement for ethereumjs-testrpc.")
             (@arg PRIVATE_KEY: -p --private-key +takes_value "Private key for the account to be generated, if not provided, a random private key will be generated.")
             (@arg BALANCE: -b --balance +takes_value "Balance in Wei for the account to be generated, default is 0x10000000000000000000000000000.")
-            (@arg LISTEN: -l --listen +takes_value "Listen address and port for the RPC, e.g. 127.0.0.1:8545")
-            (@arg ACCOUNTS: -a --accounts +takes_value "Additional accounts to be generated, default to 9")
+            (@arg LISTEN: -l --listen +takes_value "Listen address and port for the RPC, e.g. 127.0.0.1:8545.")
+            (@arg ACCOUNTS: -a --accounts +takes_value "Additional accounts to be generated, default to 9.")
     ).get_matches();
 
     let secret_key = match matches.value_of("PRIVATE_KEY") {
