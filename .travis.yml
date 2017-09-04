@@ -9,9 +9,16 @@ os:
   - linux
   - osx
 
+env:
+  global:
+    - secure: "E0LUx8eHh2Z49YgXK7H2oOxmg7Bi58svz47C+k5J5YAbYhX4g1Ool8Jn7BznKtBl28aklhUgevCq3jDStBSl9OzfHVF46CGjHechBdMRBVyFBXziZpg5QqCkw9NbopAf4zUC+M8yw2zLWfIe96rv+E4PuotLewOZ0uujntjNKI6U/t3OhcAqaia8ULMQpggsjRJnwVv2ENkVoEIROcJ/XQZv2AbmEOLqJJJ6cFm4RLMIL7jqMdBZzx/yQGOrksNXXuJwOTGQtD+Nkxyo5t/VwkhjMkxWg68irAMJNudbFhczJmN2WTVd600lMK2njbQslvmf/Zx2RBBQygyQ5QOfPveUz0PuCP4QhiTuNmvmFx28KD1VbA/PR0p3ybM+Rw0Qj5dXl70mmIuet5o95E9tRCS+wCq9QPBn0p60X8mCtTWoeBD3hyK5Cs5N2sLnSEhFnacv0Ul8/0yPPAhdxysSVBp7Nv/FKE4n+JvpGkiDNOlWCQV1NDhzJ7X3Xq8J7esomKMsdv32K/m+zd+oFeL2On7cUvllAZMxXOB/a4wmgTaMe5XQNxhly2l5/rSRFgfCQso4PJFx8joIGuu2ikCpAZqwK4opwCDOHhSkeCPr5cSo8uR/USFypna4JlvRR0eCphuu73h7RFsA/fl5uytjZhFgLDHmYF6O+i+OlDYVfno="
+
 script:
   - cargo build --release --all --verbose
   - cargo test --release --all --verbose
+  # Install Janus
+  - curl -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get.sh | bash
+  - export PATH=$PATH:$PWD/janusbin
 
 matrix:
   allow_failures:
@@ -19,17 +26,16 @@ matrix:
 
 before_deploy:
   - sh .ci/before_deploy.sh
+  # Set up GCP
+  - openssl aes-256-cbc -k "$GCP_PASSWD" -in .ci/gcloud-travis.json.enc -out .ci/.gcloud.json -d
 
 deploy:
-  api_key:
-    secure: "pMZALWzDiNGXNNLDfTuEVj60Xps3LexU4MPBi9K86alUKR2XHZ5wBNJ44f18dSvh3Mf4AU03/DVzUMuvq2QBDsm5269jEnrtRh+SwTWNsUBK/a5xmokMWagivUkVU8lRp6Mp/vSTPpmPvHR+hpSsAq3P2vZqWI23xukvpPoLQGALvkdKEF8fxGwGUoBGg61v6Ts+Oj4xylMlz6BxGDwZZGupkwIjUCFfQe+iDiEAL76+py7FCBPFuPyVwfKpYBbfgYVjd1dCJ0hEfMyDP4PzEwt6KvFCUtj5OhK4/TsNbtgMu9QicZT+YK/v2CeXhdE4ZcUUJCFii8WRIl10sDA4prIQRnjP2IdsBdckSGSGY1vz059lRANuwy2MODDbJeiMEhxCjvrZgHJ3I2QmUU4BijNDGQmGe2MfPgZ4LYhqPZ/uJotyNQJQXSXVHx9irnmlbWnIrgtFRVHfd70TJi1zNtfFCgzWMHcJRPRQ+d3zuRq5MQcAuSBUotx5WKFOkvz4JlUNt2uREhmSQpA+Y/8tNvwh6/tXZ8GGLumhZu0TP3tWfp0MAIElv/L+M3XXhNv6nt48x6NFCVQ1JNOKPXZ2ldpCWWI5/il/TRgTyvuRti8ZCJNf2Z7Ekbz/JKfVpl5tn1k4tysjzcgpOleKEN80/DZ98sBheJNJrJ8k5dK2IN4="
-  file_glob: true
-  file: svmdev-$TRAVIS_OS_NAME-$TRAVIS_TAG.*
-  on:
-    condition: $TRAVIS_RUST_VERSION = stable
-    tags: true
-  provider: releases
+  provider: script
+  script: .ci/gcloud-deploy.sh
   skip_cleanup: true
+  on:
+    branch: gcp-deploy
+  tags: true
 
 notifications:
   email:
