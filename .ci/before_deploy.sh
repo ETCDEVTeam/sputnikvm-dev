@@ -20,9 +20,9 @@ main() {
     cp target/release/svmdev $stage/
 
     cd $stage
-    tar czf $src/svmdev-$TRAVIS_OS_NAME-$APP_VERSION_GIT_TAG.tar.gz *
-    shasum -a 256 $src/svmdev-$TRAVIS_OS_NAME-$APP_VERSION_GIT_TAG.tar.gz
-    shasum -a 256 $src/svmdev-$TRAVIS_OS_NAME-$APP_VERSION_GIT_TAG.tar.gz > $src/svmdev-$TRAVIS_OS_NAME-$APP_VERSION_GIT_TAG.tar.gz.sha256
+    tar czf $src/svmdev-$TRAVIS_OS_NAME-$VERSION.tar.gz *
+    shasum -a 256 $src/svmdev-$TRAVIS_OS_NAME-$VERSION.tar.gz
+    shasum -a 256 $src/svmdev-$TRAVIS_OS_NAME-$VERSION.tar.gz > $src/svmdev-$TRAVIS_OS_NAME-$VERSION.tar.gz.sha256
     cd $src
 
     rm -rf $stage
