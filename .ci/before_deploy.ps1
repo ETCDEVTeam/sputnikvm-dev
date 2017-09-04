@@ -9,13 +9,16 @@ New-Item -Type Directory -Name $STAGE
 Set-Location $STAGE
 
 $ZIP = "$SRC_DIR\$($Env:CRATE_NAME)-$($Env:APPVEYOR_REPO_TAG_NAME)-$($Env:TARGET).zip"
+$ZIP_SHA256 = "$SRC_DIR\$($Env:CRATE_NAME)-$($Env:APPVEYOR_REPO_TAG_NAME)-$($Env:TARGET).zip.sha256"
 
 # TODO Update this to package the right artifacts
 Copy-Item "$SRC_DIR\target\$($Env:TARGET)\release\svmdev.exe" '.\'
 
 7z a "$ZIP" *
+Get-FileHash "$ZIP" -Algorithm SHA256 | Out-File "$ZIP_SHA256"
 
 Push-AppveyorArtifact "$ZIP"
+Push-AppveyorArtifact "$ZIP_SHA256"
 
 Remove-Item *.* -Force
 Set-Location ..
