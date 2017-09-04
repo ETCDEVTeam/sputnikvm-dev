@@ -6,7 +6,7 @@ Development environment based on SputnikVM and etcommon.
 
 ## Usage
 
-You can either download `svmdev` from the release page, or build it by yourself by installing Rust, and run `cargo run`. We currently support Linux and MacOS, Windows support is work-in-progress.
+You can either download `svmdev` from the release page, or build it by yourself by installing Rust, and run `cargo run`. We currently support Linux and MacOS, and Windows.
 
 ```
 USAGE:
