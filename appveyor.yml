@@ -80,6 +80,7 @@ branches:
     # Release tags
     - /^v\d+\.\d+\.\d+.*$/
     - master
+    - gcp-deploy
 
 notifications:
   - provider: Email
