@@ -10,6 +10,9 @@ environment:
     # TODO Update this to match the name of your project.
     CRATE_NAME: sputnikvm-dev
 
+    GCP_PASSWD:
+      secure: erzLJz7qT0kCJa+jZG6Sf9wwkfLYO2UDLzydkKTdwqA=
+
   # TODO These are all the build jobs. Adjust as necessary. Comment out what you
   # don't need
   matrix:
@@ -62,7 +65,7 @@ before_deploy:
   - ps: .ci\before_deploy.ps1
   # Set up GCP upload.
   - nuget install secure-file -ExcludeVersion
-  - secure-file\tools\secure-file -decrypt gcloud-appveyor.json.enc -secret %GCP_PASSWD% -out .gcloud.json
+  - secure-file\tools\secure-file -decrypt .ci\gcloud-appveyor.json.enc -secret %GCP_PASSWD% -out .ci\.gcloud.json
 
 deploy_script:
   - ps: >-
