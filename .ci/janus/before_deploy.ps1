@@ -1,7 +1,7 @@
 # This script takes care of packaging the build artifacts that will go in the
 # release zipfile
 
-curl -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get-windows.sh | bash
+curl.exe -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get-windows.sh | bash
 $env:PATH += ";./janusbin"
 $env:VERSION_BASE = "$(janus.exe version -format='v%M.%m.x')"
 $env:VERSION = "$(janus.exe version -format='v%M.%m.%C-%S')"
