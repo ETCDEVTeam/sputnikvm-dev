@@ -15,14 +15,19 @@ main() {
             ;;
     esac
 
+    openssl aes-256-cbc -k "$GCP_PASSWD" -in .ci/gcloud-travis.json.enc -out .ci/.gcloud.json -d
+
+    curl -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get.sh | bash
+    export PATH=$PATH:$PWD/janusbin
+    export APP_VERSION_GIT_TAG="$(janus version -format 'v%M.%m.%C-%S')"
+
     cargo build --release --all
 
     cp target/release/svmdev $stage/
 
     cd $stage
-    tar czf $src/svmdev-$TRAVIS_OS_NAME-$TRAVIS_TAG.tar.gz *
-    shasum -a 256 $src/svmdev-$TRAVIS_OS_NAME-$TRAVIS_TAG.tar.gz
-    shasum -a 256 $src/svmdev-$TRAVIS_OS_NAME-$TRAVIS_TAG.tar.gz > $src/svmdev-$TRAVIS_OS_NAME-$TRAVIS_TAG.tar.gz.sha256
+    mkdir -p $src/janus
+    tar czf $src/janus/svmdev-$TRAVIS_OS_NAME-$APP_VERSION_GIT_TAG.tar.gz *
     cd $src
 
     rm -rf $stage
