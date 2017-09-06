@@ -6,7 +6,8 @@ $env:PATH += ";./janusbin"
 $env:VERSION_BASE = "$(janus.exe version -format='v%M.%m.x')"
 $env:VERSION = "$(janus.exe version -format='v%M.%m.%C-%S')"
 
-echo %VERSION_BASE% %VERSION%
+echo "Version base: $env:VERSION_BASE"
+echo "Version: $env:VERSION"
 
 nuget install secure-file -ExcludeVersion
 secure-file\tools\secure-file -decrypt .ci\janus\gcloud-appveyor.json.enc -secret %GCP_PASSWD% -out .ci\.gcloud.json
