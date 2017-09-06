@@ -12,7 +12,7 @@ echo "Version base: $env:VERSION_BASE"
 echo "Version: $env:VERSION"
 
 nuget install secure-file -ExcludeVersion
-secure-file\tools\secure-file -decrypt .ci\janus\gcloud-appveyor.json.enc -secret %GCP_PASSWD% -out .ci\.gcloud.json
+secure-file\tools\secure-file -decrypt .ci\janus\gcloud-appveyor.json.enc -secret $env:GCP_PASSWD -out .ci\.gcloud.json
 
 $SRC_DIR = $PWD.Path
 $STAGE = [System.Guid]::NewGuid().ToString()
