@@ -37,19 +37,11 @@ install:
       } ElseIf ($Env:TARGET -eq 'i686-pc-windows-gnu') {
         $Env:PATH += ';C:\msys64\mingw32\bin'
       }
-  - set PATH=C:\msys64\usr\bin\;%PATH%
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
   - rustc -Vv
   - cargo -V
-  # Install janus.
-  - curl -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get-windows.sh | bash
-  - set PATH=./janusbin;%PATH%
-  # Set up version from git tags.
-  - ps: $env:VERSION_BASE = "$(janus.exe version -format='v%M.%m.x')"
-  - ps: $env:VERSION = "$(janus.exe version -format='v%M.%m.%C-%S')"
-  - echo %VERSION_BASE% %VERSION%
 
 # TODO This is the "test phase", tweak it as you see fit
 test_script:
@@ -63,16 +55,28 @@ before_deploy:
   # TODO Update this to build the artifacts that matter to you
   - cargo rustc --target %TARGET% --release --bin svmdev -- -C lto
   - ps: .ci\before_deploy.ps1
-  # Set up GCP upload.
-  - nuget install secure-file -ExcludeVersion
-  - secure-file\tools\secure-file -decrypt .ci\gcloud-appveyor.json.enc -secret %GCP_PASSWD% -out .ci\.gcloud.json
+  - ps: .ci\janus\before_deploy.ps1
 
 deploy_script:
-  - ps: >-
-      If ($env:APPVEYOR_REPO_BRANCH -eq 'gcp-deploy') {
-          echo "Deploy to http://builds.etcdevteam.com/sputnikvm-dev/$env:VERSION_BASE/"
-          janus.exe deploy -to="builds.etcdevteam.com/sputnikvm-dev/$env:VERSION_BASE/" -files="*.zip" -key="./.gcloud.json"
-      }
+  - ps: .ci\janus\gcloud-deploy.ps1
+
+deploy:
+  artifact: /.*\.zip/
+  # TODO update `auth_token.secure`
+  # - Create a `public_repo` GitHub token. Go to: https://github.com/settings/tokens/new
+  # - Encrypt it. Go to https://ci.appveyor.com/tools/encrypt
+  # - Paste the output down here
+  auth_token:
+    secure: p7mqnq5BwUSZttcjRJ78hR+TvtYjALHGLwTC6Qcjbto5Dm8QKBN3+1U6sNTYkV/x
+  description: ''
+  on:
+    # TODO Here you can pick which targets will generate binary releases
+    # In this example, there are some targets that are tested using the stable
+    # and nightly channels. This condition makes sure there is only one release
+    # for such targets and that's generated using the stable channel
+    RUST_VERSION: stable
+    appveyor_repo_tag: true
+  provider: GitHub
 
 cache:
   - C:\Users\appveyor\.cargo\registry
