@@ -21,7 +21,8 @@ Set-Location $ENV:Temp
 New-Item -Type Directory -Name $STAGE
 Set-Location $STAGE
 
-$ZIP = "$SRC_DIR\$($Env:CRATE_NAME)-$($Env:VERSION)-$($Env:TARGET).zip"
+mkdir $SRC_DIR\janus
+$ZIP = "$SRC_DIR\janus\$($Env:CRATE_NAME)-$($Env:VERSION)-$($Env:TARGET).zip"
 
 # TODO Update this to package the right artifacts
 Copy-Item "$SRC_DIR\target\$($Env:TARGET)\release\svmdev.exe" "$SRC_DIR\svmdev-win-$($Env:VERSION).exe"
