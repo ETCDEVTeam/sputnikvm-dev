@@ -15,7 +15,7 @@ main() {
             ;;
     esac
 
-    openssl aes-256-cbc -k "$GCP_PASSWD" -in .ci/gcloud-travis.json.enc -out .ci/.gcloud.json -d
+    openssl aes-256-cbc -k "$GCP_PASSWD" -in .ci/janus/gcloud-travis.json.enc -out .ci/.gcloud.json -d
 
     curl -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get.sh | bash
     export PATH=$PATH:$PWD/janusbin
