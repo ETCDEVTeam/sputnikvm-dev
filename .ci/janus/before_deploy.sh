@@ -19,7 +19,7 @@ main() {
 
     curl -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get.sh | bash
     export PATH=$PATH:$PWD/janusbin
-    export APP_VERSION_GIT_TAG="$(janus version -format 'v%M.%m.%C-%S')"
+    export APP_VERSION_GIT_TAG="$(janus version -format 'v%M.%m.%P-%C-%S')"
 
     cargo build --release --all
 

@@ -6,7 +6,7 @@ $env:PATH += ";C:\msys64\usr\bin\";
 curl.exe -sL https://raw.githubusercontent.com/ethereumproject/janus/master/get-windows.sh | bash
 $env:PATH += ";./janusbin"
 $env:VERSION_BASE = "$(janus.exe version -format='v%M.%m.x')"
-$env:VERSION = "$(janus.exe version -format='v%M.%m.%C-%S')"
+$env:VERSION = "$(janus.exe version -format='v%M.%m.%P-%C-%S')"
 
 echo "Version base: $env:VERSION_BASE"
 echo "Version: $env:VERSION"
