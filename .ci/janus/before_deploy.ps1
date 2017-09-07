@@ -25,7 +25,7 @@ mkdir $SRC_DIR\janus
 $ZIP = "$SRC_DIR\janus\$($Env:CRATE_NAME)-$($Env:VERSION)-$($Env:TARGET).zip"
 
 # TODO Update this to package the right artifacts
-Copy-Item "$SRC_DIR\target\$($Env:TARGET)\release\svmdev.exe" "$SRC_DIR\svmdev-win-$($Env:VERSION).exe"
+Copy-Item "$SRC_DIR\target\$($Env:TARGET)\release\svmdev.exe" '.\'
 
 7z a "$ZIP" *
 
