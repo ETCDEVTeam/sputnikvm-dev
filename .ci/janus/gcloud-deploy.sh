@@ -2,6 +2,7 @@
 
 set -e
 
+export PATH=$PATH:$(pwd)/janusbin
 echo "Check condition branch: $TRAVIS_BRANCH rust version: $TRAVIS_RUST_VERSION"
 
 if [ "$TRAVIS_BRANCH" = "gcp-deploy" ]; then
