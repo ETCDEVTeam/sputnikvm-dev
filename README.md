@@ -1,6 +1,6 @@
 # SputnikVM Developer Environment
 
-[![Build Status](https://travis-ci.org/ethereumproject/sputnikvm-dev.svg?branch=master)](https://travis-ci.org/ethereumproject/sputnikvm-dev) [![Build status](https://ci.appveyor.com/api/projects/status/tqypp8e5h30knytw?svg=true)](https://ci.appveyor.com/project/sorpaas/sputnikvm-dev)
+[![Build Status](https://travis-ci.org/ethereumproject/sputnikvm-dev.svg?branch=master)](https://travis-ci.org/ethereumproject/sputnikvm-dev) [![Build status](https://ci.appveyor.com/api/projects/status/k4wytswph99qt9m9?svg=true)](https://ci.appveyor.com/project/splix/sputnikvm-dev)
 
 Development environment based on SputnikVM and etcommon.
 
