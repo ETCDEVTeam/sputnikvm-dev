@@ -26,16 +26,16 @@ matrix:
 before_deploy:
   - sh .ci/before_deploy.sh
 
-deploy:
-  api_key:
-    secure: "pMZALWzDiNGXNNLDfTuEVj60Xps3LexU4MPBi9K86alUKR2XHZ5wBNJ44f18dSvh3Mf4AU03/DVzUMuvq2QBDsm5269jEnrtRh+SwTWNsUBK/a5xmokMWagivUkVU8lRp6Mp/vSTPpmPvHR+hpSsAq3P2vZqWI23xukvpPoLQGALvkdKEF8fxGwGUoBGg61v6Ts+Oj4xylMlz6BxGDwZZGupkwIjUCFfQe+iDiEAL76+py7FCBPFuPyVwfKpYBbfgYVjd1dCJ0hEfMyDP4PzEwt6KvFCUtj5OhK4/TsNbtgMu9QicZT+YK/v2CeXhdE4ZcUUJCFii8WRIl10sDA4prIQRnjP2IdsBdckSGSGY1vz059lRANuwy2MODDbJeiMEhxCjvrZgHJ3I2QmUU4BijNDGQmGe2MfPgZ4LYhqPZ/uJotyNQJQXSXVHx9irnmlbWnIrgtFRVHfd70TJi1zNtfFCgzWMHcJRPRQ+d3zuRq5MQcAuSBUotx5WKFOkvz4JlUNt2uREhmSQpA+Y/8tNvwh6/tXZ8GGLumhZu0TP3tWfp0MAIElv/L+M3XXhNv6nt48x6NFCVQ1JNOKPXZ2ldpCWWI5/il/TRgTyvuRti8ZCJNf2Z7Ekbz/JKfVpl5tn1k4tysjzcgpOleKEN80/DZ98sBheJNJrJ8k5dK2IN4="
-  file_glob: true
-  file: svmdev-$TRAVIS_OS_NAME-$TRAVIS_TAG.*
-  on:
-    condition: $TRAVIS_RUST_VERSION = stable
-    tags: true
-  provider: releases
-  skip_cleanup: true
+# deploy:
+#   api_key:
+#     secure: "pMZALWzDiNGXNNLDfTuEVj60Xps3LexU4MPBi9K86alUKR2XHZ5wBNJ44f18dSvh3Mf4AU03/DVzUMuvq2QBDsm5269jEnrtRh+SwTWNsUBK/a5xmokMWagivUkVU8lRp6Mp/vSTPpmPvHR+hpSsAq3P2vZqWI23xukvpPoLQGALvkdKEF8fxGwGUoBGg61v6Ts+Oj4xylMlz6BxGDwZZGupkwIjUCFfQe+iDiEAL76+py7FCBPFuPyVwfKpYBbfgYVjd1dCJ0hEfMyDP4PzEwt6KvFCUtj5OhK4/TsNbtgMu9QicZT+YK/v2CeXhdE4ZcUUJCFii8WRIl10sDA4prIQRnjP2IdsBdckSGSGY1vz059lRANuwy2MODDbJeiMEhxCjvrZgHJ3I2QmUU4BijNDGQmGe2MfPgZ4LYhqPZ/uJotyNQJQXSXVHx9irnmlbWnIrgtFRVHfd70TJi1zNtfFCgzWMHcJRPRQ+d3zuRq5MQcAuSBUotx5WKFOkvz4JlUNt2uREhmSQpA+Y/8tNvwh6/tXZ8GGLumhZu0TP3tWfp0MAIElv/L+M3XXhNv6nt48x6NFCVQ1JNOKPXZ2ldpCWWI5/il/TRgTyvuRti8ZCJNf2Z7Ekbz/JKfVpl5tn1k4tysjzcgpOleKEN80/DZ98sBheJNJrJ8k5dK2IN4="
+#   file_glob: true
+#   file: svmdev-$TRAVIS_OS_NAME-$TRAVIS_TAG.*
+#   on:
+#     condition: $TRAVIS_RUST_VERSION = stable
+#     tags: true
+#   provider: releases
+#   skip_cleanup: true
 
 notifications:
   email:
