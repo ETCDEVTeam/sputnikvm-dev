@@ -12,6 +12,7 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 mod serves;
 mod filter;
 mod util;
+mod serialize;
 
 use error::Error;
 use super::miner;
