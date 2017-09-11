@@ -94,19 +94,18 @@ pub struct RPCBlock {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCTransaction {
-    pub from: String,
-    pub to: Option<String>,
-    pub gas: Option<String>,
-    pub gas_price: Option<String>,
-    pub value: Option<String>,
-    #[serde(default)]
-    pub data: String,
-    pub nonce: Option<String>,
+    pub from: Hex<Address>,
+    pub to: Option<Hex<Address>>,
+    pub gas: Option<Hex<Gas>>,
+    pub gas_price: Option<Hex<Gas>>,
+    pub value: Option<Hex<U256>>,
+    pub data: Option<Bytes>,
+    pub nonce: Option<Hex<U256>>,
 
-    pub hash: Option<String>,
-    pub block_hash: Option<String>,
-    pub block_number: Option<String>,
-    pub transaction_index: Option<String>,
+    pub hash: Option<Hex<H256>>,
+    pub block_hash: Option<Hex<H256>>,
+    pub block_number: Option<Hex<U256>>,
+    pub transaction_index: Option<Hex<usize>>,
 }
 
 build_rpc_trait! {
@@ -158,7 +157,7 @@ build_rpc_trait! {
         #[rpc(name = "eth_sign")]
         fn sign(&self, Hex<Address>, Bytes) -> Result<Bytes, Error>;
         #[rpc(name = "eth_sendTransaction")]
-        fn send_transaction(&self, RPCTransaction) -> Result<String, Error>;
+        fn send_transaction(&self, RPCTransaction) -> Result<Hex<H256>, Error>;
         #[rpc(name = "eth_sendRawTransaction")]
         fn send_raw_transaction(&self, String) -> Result<String, Error>;
 

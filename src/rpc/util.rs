@@ -1,5 +1,6 @@
 use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter};
 use super::filter::*;
+use super::serialize::*;
 use error::Error;
 use miner;
 
@@ -123,21 +124,20 @@ pub fn to_rpc_transaction(transaction: Transaction, block: Option<&Block>) -> RP
     let hash = H256::from(Keccak256::digest(&rlp::encode(&transaction).to_vec()).as_slice());
 
     RPCTransaction {
-        from: format!("0x{:x}", transaction.caller().unwrap()),
+        from: Hex(transaction.caller().unwrap()),
         to: match transaction.action {
-            TransactionAction::Call(address) =>
-                Some(format!("0x{:x}", address)),
+            TransactionAction::Call(address) => Some(Hex(address)),
             TransactionAction::Create => None,
         },
-        gas: Some(format!("0x{:x}", transaction.gas_limit)),
-        gas_price: Some(format!("0x{:x}", transaction.gas_price)),
-        value: Some(format!("0x{:x}", transaction.value)),
-        data: to_hex(&transaction.input),
-        nonce: Some(format!("0x{:x}", transaction.nonce)),
+        gas: Some(Hex(transaction.gas_limit)),
+        gas_price: Some(Hex(transaction.gas_price)),
+        value: Some(Hex(transaction.value)),
+        data: Some(Bytes(transaction.input)),
+        nonce: Some(Hex(transaction.nonce)),
 
-        hash: Some(format!("0x{:x}", hash)),
-        block_hash: block.map(|b| format!("0x{:x}", b.header.header_hash())),
-        block_number: block.map(|b| format!("0x{:x}", b.header.number)),
+        hash: Some(Hex(hash)),
+        block_hash: block.map(|b| Hex(b.header.header_hash())),
+        block_number: block.map(|b| Hex(b.header.number)),
         transaction_index: {
             if block.is_some() {
                 let block = block.unwrap();
@@ -152,7 +152,7 @@ pub fn to_rpc_transaction(transaction: Transaction, block: Option<&Block>) -> RP
                     i += 1;
                 }
                 if found {
-                    Some(format!("0x{:x}", i))
+                    Some(Hex(i))
                 } else {
                     None
                 }
@@ -201,7 +201,7 @@ pub fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: 
 }
 
 pub fn to_signed_transaction(transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<Transaction, Error> {
-    let address = Address::from_str(&transaction.from)?;
+    let address = transaction.from.0;
     let secret_key = {
         let mut secret_key = None;
         for key in miner::accounts() {
@@ -221,28 +221,31 @@ pub fn to_signed_transaction(transaction: RPCTransaction, stateful: &MemoryState
 
     let unsigned = UnsignedTransaction {
         nonce: match transaction.nonce {
-            Some(val) => U256::from_str(&val)?,
+            Some(val) => val.0,
             None => {
                 account.as_ref().map(|account| account.nonce).unwrap_or(U256::zero())
             }
         },
         gas_price: match transaction.gas_price {
-            Some(val) => Gas::from_str(&val)?,
+            Some(val) => val.0,
             None => Gas::zero(),
         },
         gas_limit: match transaction.gas {
-            Some(val) => Gas::from_str(&val)?,
+            Some(val) => val.0,
             None => Gas::from(90000u64),
         },
         action: match transaction.to {
-            Some(val) => TransactionAction::Call(Address::from_str(&val)?),
+            Some(val) => TransactionAction::Call(val.0),
             None => TransactionAction::Create,
         },
         value: match transaction.value {
-            Some(val) => U256::from_str(&val)?,
+            Some(val) => val.0,
             None => U256::zero(),
         },
-        input: read_hex(&transaction.data)?,
+        input: match transaction.data {
+            Some(val) => val.0,
+            None => Vec::new(),
+        },
         network_id: None,
     };
     let transaction = unsigned.sign(&secret_key);
@@ -251,7 +254,7 @@ pub fn to_signed_transaction(transaction: RPCTransaction, stateful: &MemoryState
 }
 
 pub fn to_valid_transaction(transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<ValidTransaction, Error> {
-    let address = Address::from_str(&transaction.from)?;
+    let address = transaction.from.0;
 
     let block = miner::get_block_by_number(miner::block_height());
     let trie = stateful.state_of(block.header.state_root);
@@ -260,28 +263,31 @@ pub fn to_valid_transaction(transaction: RPCTransaction, stateful: &MemoryStatef
 
     let valid = ValidTransaction {
         nonce: match transaction.nonce {
-            Some(val) => U256::from_str(&val)?,
+            Some(val) => val.0,
             None => {
                 account.as_ref().map(|account| account.nonce).unwrap_or(U256::zero())
             }
         },
         gas_price: match transaction.gas_price {
-            Some(val) => Gas::from_str(&val)?,
+            Some(val) => val.0,
             None => Gas::zero(),
         },
         gas_limit: match transaction.gas {
-            Some(val) => Gas::from_str(&val)?,
+            Some(val) => val.0,
             None => Gas::from(90000u64),
         },
         action: match transaction.to {
-            Some(val) => TransactionAction::Call(Address::from_str(&val)?),
+            Some(val) => TransactionAction::Call(val.0),
             None => TransactionAction::Create,
         },
         value: match transaction.value {
-            Some(val) => U256::from_str(&val)?,
+            Some(val) => val.0,
             None => U256::zero(),
         },
-        input: read_hex(&transaction.data)?,
+        input: match transaction.data {
+            Some(val) => val.0,
+            None => Vec::new(),
+        },
         caller: Some(address),
     };
 

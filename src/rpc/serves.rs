@@ -237,7 +237,7 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Bytes(ret))
     }
 
-    fn send_transaction(&self, transaction: RPCTransaction) -> Result<String, Error> {
+    fn send_transaction(&self, transaction: RPCTransaction) -> Result<Hex<H256>, Error> {
         let stateful = miner::stateful();
         let transaction = to_signed_transaction(transaction, &stateful)?;
 
@@ -245,7 +245,7 @@ impl EthereumRPC for MinerEthereumRPC {
 
         let hash = miner::append_pending_transaction(transaction);
         self.channel.send(true);
-        Ok(format!("0x{:x}", hash))
+        Ok(Hex(hash))
     }
 
     fn send_raw_transaction(&self, data: String) -> Result<String, Error> {
