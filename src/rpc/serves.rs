@@ -341,6 +341,9 @@ impl EthereumRPC for MinerEthereumRPC {
             Err(Error::NotFound) => return Ok(None),
             Err(e) => return Err(e.into()),
         };
+        if index.0.as_usize() >= block.transactions.len() {
+            return Ok(None);
+        }
         let transaction = block.transactions[index.0.as_usize()].clone();
 
         Ok(Some(to_rpc_transaction(transaction, Some(&block))))
@@ -348,26 +351,34 @@ impl EthereumRPC for MinerEthereumRPC {
 
     fn transaction_by_block_number_and_index(&self, number: Hex<U256>, index: Hex<U256>) -> Result<Option<RPCTransaction>, Error> {
         let block = miner::get_block_by_number(number.0.as_usize());
+        if index.0.as_usize() >= block.transactions.len() {
+            return Ok(None);
+        }
         let transaction = block.transactions[index.0.as_usize()].clone();
 
         Ok(Some(to_rpc_transaction(transaction, Some(&block))))
     }
 
-    fn transaction_receipt(&self, hash: String) -> Result<Option<RPCReceipt>, Error> {
-        let hash = H256::from_str(&hash)?;
-        let receipt = match miner::get_receipt_by_transaction_hash(hash) {
-            Ok(receipt) => receipt,
-            Err(_) => return Ok(None),
+    fn transaction_receipt(&self, hash: Hex<H256>) -> Result<Option<RPCReceipt>, Error> {
+        let receipt = match miner::get_receipt_by_transaction_hash(hash.0) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
         };
 
-        let transaction = miner::get_transaction_by_hash(hash)?;
-        let block = match miner::get_transaction_block_hash_by_hash(hash) {
-            Ok(block_hash) => miner::get_block_by_hash(block_hash).ok(),
-            Err(_) => None,
+        let transaction = match miner::get_transaction_by_hash(hash.0) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let block = match miner::get_transaction_block_hash_by_hash(hash.0) {
+            Ok(val) => miner::get_block_by_hash(val).ok(),
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
         };
 
         if block.is_none() {
-            Err(Error::NotFound)
+            Ok(None)
         } else {
             Ok(Some(to_rpc_receipt(receipt, &transaction, &block.unwrap())?))
         }
