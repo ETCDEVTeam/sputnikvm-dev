@@ -187,21 +187,20 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Some(Hex(block.ommers.len())))
     }
 
-    fn code(&self, address: String, block: Trailing<String>) -> Result<String, Error> {
-        let address = Address::from_str(&address)?;
+    fn code(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Bytes, Error> {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
         let stateful = miner::stateful();
         let trie = stateful.state_of(block.header.state_root);
 
-        let account: Option<Account> = trie.get(&address);
+        let account: Option<Account> = trie.get(&address.0);
         match account {
             Some(account) => {
-                Ok(to_hex(&stateful.code(account.code_hash).unwrap()))
+                Ok(Bytes(stateful.code(account.code_hash).unwrap()))
             },
             None => {
-                Ok("".to_string())
+                Ok(Bytes(Vec::new()))
             },
         }
     }
