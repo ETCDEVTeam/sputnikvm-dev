@@ -5,7 +5,7 @@ use jsonrpc_macros::Trailing;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
-use bigint::{H256, Address, Gas};
+use bigint::{U256, H256, Address, Gas};
 use std::net::SocketAddr;
 use std::sync::mpsc::{channel, Sender, Receiver};
 
@@ -138,7 +138,7 @@ build_rpc_trait! {
 		#[rpc(name = "eth_accounts")]
 		fn accounts(&self) -> Result<Vec<Hex<Address>>, Error>;
 		#[rpc(name = "eth_blockNumber")]
-		fn block_number(&self) -> Result<String, Error>;
+		fn block_number(&self) -> Result<Hex<usize>, Error>;
 		#[rpc(name = "eth_getBalance")]
 		fn balance(&self, String, Trailing<String>) -> Result<String, Error>;
 		#[rpc(name = "eth_getStorageAt")]

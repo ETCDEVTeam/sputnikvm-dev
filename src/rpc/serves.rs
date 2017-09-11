@@ -88,8 +88,8 @@ impl EthereumRPC for MinerEthereumRPC {
         }).collect())
     }
 
-    fn block_number(&self) -> Result<String, Error> {
-        Ok(format!("0x{:x}", miner::block_height()))
+    fn block_number(&self) -> Result<Hex<usize>, Error> {
+        Ok(Hex(miner::block_height()))
     }
 
     fn balance(&self, address: String, block: Trailing<String>) -> Result<String, Error> {
