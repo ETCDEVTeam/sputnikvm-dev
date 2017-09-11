@@ -130,20 +130,19 @@ impl EthereumRPC for MinerEthereumRPC {
         }
     }
 
-    fn transaction_count(&self, address: String, block: Trailing<String>) -> Result<String, Error> {
-        let address = Address::from_str(&address)?;
+    fn transaction_count(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Hex<usize>, Error> {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
         let mut count = 0;
 
         for transactions in block.transactions {
-            if transactions.caller()? == address {
+            if transactions.caller()? == address.0 {
                 count += 1;
             }
         }
 
-        Ok(format!("0x{:x}", count))
+        Ok(Hex(count))
     }
 
     fn block_transaction_count_by_hash(&self, block: String) -> Result<Option<String>, Error> {
