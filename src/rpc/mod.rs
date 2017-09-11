@@ -175,13 +175,13 @@ build_rpc_trait! {
         #[rpc(name = "eth_getTransactionByBlockHashAndIndex")]
         fn transaction_by_block_hash_and_index(&self, Hex<H256>, Hex<U256>) -> Result<Option<RPCTransaction>, Error>;
         #[rpc(name = "eth_getTransactionByBlockNumberAndIndex")]
-        fn transaction_by_block_number_and_index(&self, Hex<U256>, Hex<U256>) -> Result<Option<RPCTransaction>, Error>;
+        fn transaction_by_block_number_and_index(&self, String, Hex<U256>) -> Result<Option<RPCTransaction>, Error>;
         #[rpc(name = "eth_getTransactionReceipt")]
         fn transaction_receipt(&self, Hex<H256>) -> Result<Option<RPCReceipt>, Error>;
         #[rpc(name = "eth_getUncleByBlockHashAndIndex")]
-        fn uncle_by_block_hash_and_index(&self, String, String) -> Result<RPCBlock, Error>;
+        fn uncle_by_block_hash_and_index(&self, Hex<H256>, Hex<U256>) -> Result<Option<RPCBlock>, Error>;
         #[rpc(name = "eth_getUncleByBlockNumberAndIndex")]
-        fn uncle_by_block_number_and_index(&self, String, String) -> Result<RPCBlock, Error>;
+        fn uncle_by_block_number_and_index(&self, String, Hex<U256>) -> Result<Option<RPCBlock>, Error>;
 
         #[rpc(name = "eth_getCompilers")]
         fn compilers(&self) -> Result<Vec<String>, Error>;

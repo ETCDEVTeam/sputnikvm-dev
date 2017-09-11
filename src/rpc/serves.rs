@@ -349,8 +349,13 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Some(to_rpc_transaction(transaction, Some(&block))))
     }
 
-    fn transaction_by_block_number_and_index(&self, number: Hex<U256>, index: Hex<U256>) -> Result<Option<RPCTransaction>, Error> {
-        let block = miner::get_block_by_number(number.0.as_usize());
+    fn transaction_by_block_number_and_index(&self, number: String, index: Hex<U256>) -> Result<Option<RPCTransaction>, Error> {
+        let number = match from_block_number(Some(number)) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let block = miner::get_block_by_number(number);
         if index.0.as_usize() >= block.transactions.len() {
             return Ok(None);
         }
@@ -384,26 +389,50 @@ impl EthereumRPC for MinerEthereumRPC {
         }
     }
 
-    fn uncle_by_block_hash_and_index(&self, block_hash: String, index: String) -> Result<RPCBlock, Error> {
-        let index = U256::from_str(&index)?.as_usize();
-        let block_hash = H256::from_str(&block_hash)?;
-        let block = miner::get_block_by_hash(block_hash)?;
+    fn uncle_by_block_hash_and_index(&self, block_hash: Hex<H256>, index: Hex<U256>) -> Result<Option<RPCBlock>, Error> {
+        let index = index.0.as_usize();
+        let block_hash = block_hash.0;
+        let block = match miner::get_block_by_hash(block_hash) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
         let uncle_hash = block.ommers[index].header_hash();
-        let uncle = miner::get_block_by_hash(uncle_hash)?;
-        let total = miner::get_total_header_by_hash(uncle_hash)?;
+        let uncle = match miner::get_block_by_hash(uncle_hash) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let total = match miner::get_total_header_by_hash(uncle_hash) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
-        Ok(to_rpc_block(uncle, total, false))
+        Ok(Some(to_rpc_block(uncle, total, false)))
     }
 
-    fn uncle_by_block_number_and_index(&self, block_number: String, index: String) -> Result<RPCBlock, Error> {
-        let block_number = from_block_number(Some(block_number))?;
-        let index = U256::from_str(&index)?.as_usize();
+    fn uncle_by_block_number_and_index(&self, block_number: String, index: Hex<U256>) -> Result<Option<RPCBlock>, Error> {
+        let block_number = match from_block_number(Some(block_number)) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let index = index.0.as_usize();
         let block = miner::get_block_by_number(block_number);
         let uncle_hash = block.ommers[index].header_hash();
-        let uncle = miner::get_block_by_hash(uncle_hash)?;
-        let total = miner::get_total_header_by_hash(uncle_hash)?;
+        let uncle = match miner::get_block_by_hash(uncle_hash) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let total = match miner::get_total_header_by_hash(uncle_hash) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
-        Ok(to_rpc_block(uncle, total, false))
+        Ok(Some(to_rpc_block(uncle, total, false)))
     }
 
     fn compilers(&self) -> Result<Vec<String>, Error> {
