@@ -155,20 +155,25 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Some(Hex(block.transactions.len())))
     }
 
-    fn block_transaction_count_by_number(&self, number: String) -> Result<Option<String>, Error> {
-        let number = U256::from_str(&number)?;
-        let block = miner::get_block_by_number(number.as_usize());
+    fn block_transaction_count_by_number(&self, number: String) -> Result<Option<Hex<usize>>, Error> {
+        let number = match from_block_number(number) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let block = miner::get_block_by_number(number);
 
-        // TODO: handle None case
-        Ok(Some(format!("0x{:x}", block.transactions.len())))
+        Ok(Some(Hex(block.transactions.len())))
     }
 
-    fn block_uncles_count_by_hash(&self, block: String) -> Result<Option<String>, Error> {
-        let hash = H256::from_str(&block)?;
-        let block = miner::get_block_by_hash(hash)?;
+    fn block_uncles_count_by_hash(&self, block: Hex<H256>) -> Result<Option<Hex<usize>>, Error> {
+        let block = match miner::get_block_by_hash(block.0) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
-        // TODO: handle None case
-        Ok(Some(format!("0x{:x}", block.ommers.len())))
+        Ok(Some(Hex(block.ommers.len())))
     }
 
     fn block_uncles_count_by_number(&self, number: String) -> Result<Option<String>, Error> {

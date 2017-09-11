@@ -148,9 +148,9 @@ build_rpc_trait! {
         #[rpc(name = "eth_getBlockTransactionCountByHash")]
 		fn block_transaction_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getBlockTransactionCountByNumber")]
-		fn block_transaction_count_by_number(&self, String) -> Result<Option<String>, Error>;
+		fn block_transaction_count_by_number(&self, String) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getUncleCountByBlockHash")]
-		fn block_uncles_count_by_hash(&self, String) -> Result<Option<String>, Error>;
+		fn block_uncles_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getUncleCountByBlockNumber")]
 		fn block_uncles_count_by_number(&self, String) -> Result<Option<String>, Error>;
 		#[rpc(name = "eth_getCode")]
