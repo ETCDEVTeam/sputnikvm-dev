@@ -164,7 +164,7 @@ build_rpc_trait! {
         #[rpc(name = "eth_call")]
         fn call(&self, RPCTransaction, Trailing<String>) -> Result<Bytes, Error>;
         #[rpc(name = "eth_estimateGas")]
-        fn estimate_gas(&self, RPCTransaction, Trailing<String>) -> Result<String, Error>;
+        fn estimate_gas(&self, RPCTransaction, Trailing<String>) -> Result<Hex<Gas>, Error>;
 
         #[rpc(name = "eth_getBlockByHash")]
         fn block_by_hash(&self, String, bool) -> Result<RPCBlock, Error>;

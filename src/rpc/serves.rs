@@ -275,7 +275,7 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Bytes(vm.out().into()))
     }
 
-    fn estimate_gas(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
+    fn estimate_gas(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<Hex<Gas>, Error> {
         let stateful = miner::stateful();
 
         let valid = to_valid_transaction(transaction, &stateful)?;
@@ -287,7 +287,7 @@ impl EthereumRPC for MinerEthereumRPC {
             valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
             &miner::get_last_256_block_hashes());
 
-        Ok(format!("0x{:x}", vm.real_used_gas()))
+        Ok(Hex(vm.real_used_gas()))
     }
 
     fn block_by_hash(&self, hash: String, full: bool) -> Result<RPCBlock, Error> {
