@@ -162,7 +162,7 @@ build_rpc_trait! {
         fn send_raw_transaction(&self, Bytes) -> Result<Hex<H256>, Error>;
 
         #[rpc(name = "eth_call")]
-        fn call(&self, RPCTransaction, Trailing<String>) -> Result<String, Error>;
+        fn call(&self, RPCTransaction, Trailing<String>) -> Result<Bytes, Error>;
         #[rpc(name = "eth_estimateGas")]
         fn estimate_gas(&self, RPCTransaction, Trailing<String>) -> Result<String, Error>;
 
