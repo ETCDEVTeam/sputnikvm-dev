@@ -140,7 +140,7 @@ build_rpc_trait! {
 		#[rpc(name = "eth_blockNumber")]
 		fn block_number(&self) -> Result<Hex<usize>, Error>;
 		#[rpc(name = "eth_getBalance")]
-		fn balance(&self, String, Trailing<String>) -> Result<String, Error>;
+		fn balance(&self, Hex<Address>, Trailing<String>) -> Result<Hex<U256>, Error>;
 		#[rpc(name = "eth_getStorageAt")]
 		fn storage_at(&self, String, String, Trailing<String>) -> Result<String, Error>;
         #[rpc(name = "eth_getTransactionCount")]

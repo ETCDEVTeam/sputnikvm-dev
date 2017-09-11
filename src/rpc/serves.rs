@@ -92,21 +92,20 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Hex(miner::block_height()))
     }
 
-    fn balance(&self, address: String, block: Trailing<String>) -> Result<String, Error> {
-        let address = Address::from_str(&address)?;
+    fn balance(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Hex<U256>, Error> {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
         let stateful = miner::stateful();
         let trie = stateful.state_of(block.header.state_root);
 
-        let account: Option<Account> = trie.get(&address);
+        let account: Option<Account> = trie.get(&address.0);
         match account {
             Some(account) => {
-                Ok(format!("0x{:x}", account.balance))
+                Ok(Hex(account.balance))
             },
             None => {
-                Ok(format!("0x{:x}", 0))
+                Ok(Hex(U256::zero()))
             },
         }
     }
