@@ -156,7 +156,7 @@ build_rpc_trait! {
 		#[rpc(name = "eth_getCode")]
 		fn code(&self, Hex<Address>, Trailing<String>) -> Result<Bytes, Error>;
         #[rpc(name = "eth_sign")]
-        fn sign(&self, String, String) -> Result<String, Error>;
+        fn sign(&self, Hex<Address>, Bytes) -> Result<Bytes, Error>;
         #[rpc(name = "eth_sendTransaction")]
         fn send_transaction(&self, RPCTransaction) -> Result<String, Error>;
         #[rpc(name = "eth_sendRawTransaction")]

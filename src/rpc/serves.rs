@@ -205,22 +205,21 @@ impl EthereumRPC for MinerEthereumRPC {
         }
     }
 
-    fn sign(&self, address: String, message: String) -> Result<String, Error> {
+    fn sign(&self, address: Hex<Address>, message: Bytes) -> Result<Bytes, Error> {
         use sha3::{Digest, Keccak256};
         use secp256k1::{SECP256K1, Message};
 
-        let address = Address::from_str(&address)?;
         let mut signing_message = Vec::new();
 
         signing_message.extend("Ethereum Signed Message:\n".as_bytes().iter().cloned());
-        signing_message.extend(format!("0x{:x}\n", message.as_bytes().len()).as_bytes().iter().cloned());
-        signing_message.extend(message.as_bytes().iter().cloned());
+        signing_message.extend(format!("0x{:x}\n", message.0.len()).as_bytes().iter().cloned());
+        signing_message.extend(message.0.iter().cloned());
 
         let hash = H256::from(Keccak256::digest(&signing_message).as_slice());
         let secret_key = {
             let mut secret_key = None;
             for key in miner::accounts() {
-                if Address::from_secret_key(&key)? == address {
+                if Address::from_secret_key(&key)? == address.0 {
                     secret_key = Some(key);
                 }
             }
@@ -235,7 +234,7 @@ impl EthereumRPC for MinerEthereumRPC {
         ret.push(rec.to_i32() as u8);
         ret.extend(sign.as_ref());
 
-        Ok(to_hex(&ret))
+        Ok(Bytes(ret))
     }
 
     fn send_transaction(&self, transaction: RPCTransaction) -> Result<String, Error> {
