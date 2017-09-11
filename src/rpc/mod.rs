@@ -169,7 +169,7 @@ build_rpc_trait! {
         #[rpc(name = "eth_getBlockByHash")]
         fn block_by_hash(&self, Hex<H256>, bool) -> Result<Option<RPCBlock>, Error>;
         #[rpc(name = "eth_getBlockByNumber")]
-        fn block_by_number(&self, String, bool) -> Result<RPCBlock, Error>;
+        fn block_by_number(&self, String, bool) -> Result<Option<RPCBlock>, Error>;
         #[rpc(name = "eth_getTransactionByHash")]
         fn transaction_by_hash(&self, String) -> Result<RPCTransaction, Error>;
         #[rpc(name = "eth_getTransactionByBlockHashAndIndex")]

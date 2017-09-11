@@ -305,12 +305,20 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Some(to_rpc_block(block, total, full)))
     }
 
-    fn block_by_number(&self, number: String, full: bool) -> Result<RPCBlock, Error> {
-        let number = from_block_number(Some(number))?;
+    fn block_by_number(&self, number: String, full: bool) -> Result<Option<RPCBlock>, Error> {
+        let number = match from_block_number(Some(number)) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
         let block = miner::get_block_by_number(number);
-        let total = miner::get_total_header_by_hash(block.header.header_hash())?;
+        let total = match miner::get_total_header_by_hash(block.header.header_hash()) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
-        Ok(to_rpc_block(block, total, full))
+        Ok(Some(to_rpc_block(block, total, full)))
     }
 
     fn transaction_by_hash(&self, hash: String) -> Result<RPCTransaction, Error> {
