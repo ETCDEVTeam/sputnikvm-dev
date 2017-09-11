@@ -5,7 +5,7 @@ use jsonrpc_macros::Trailing;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
-use bigint::{U256, H256, M256, Address, Gas};
+use bigint::{U256, H256, M256, H2048, H64, Address, Gas};
 use std::net::SocketAddr;
 use std::sync::mpsc::{channel, Sender, Receiver};
 
@@ -70,25 +70,25 @@ pub struct RPCReceipt {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCBlock {
-    pub number: String,
-    pub hash: String,
-    pub parent_hash: String,
-    pub nonce: String,
-    pub sha3_uncles: String,
-    pub logs_bloom: String,
-    pub transactions_root: String,
-    pub state_root: String,
-    pub receipts_root: String,
-    pub miner: String,
-    pub difficulty: String,
-    pub total_difficulty: String,
-    pub extra_data: String,
-    pub size: String,
-    pub gas_limit: String,
-    pub gas_used: String,
-    pub timestamp: String,
-    pub transactions: Either<Vec<String>, Vec<RPCTransaction>>,
-    pub uncles: Vec<String>,
+    pub number: Hex<U256>,
+    pub hash: Hex<H256>,
+    pub parent_hash: Hex<H256>,
+    pub nonce: Hex<H64>,
+    pub sha3_uncles: Hex<H256>,
+    pub logs_bloom: Hex<H2048>,
+    pub transactions_root: Hex<H256>,
+    pub state_root: Hex<H256>,
+    pub receipts_root: Hex<H256>,
+    pub miner: Hex<Address>,
+    pub difficulty: Hex<U256>,
+    pub total_difficulty: Hex<U256>,
+    pub extra_data: Bytes,
+    pub size: Hex<usize>,
+    pub gas_limit: Hex<Gas>,
+    pub gas_used: Hex<Gas>,
+    pub timestamp: Hex<u64>,
+    pub transactions: Either<Vec<Hex<H256>>, Vec<RPCTransaction>>,
+    pub uncles: Vec<Hex<H256>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -167,7 +167,7 @@ build_rpc_trait! {
         fn estimate_gas(&self, RPCTransaction, Trailing<String>) -> Result<Hex<Gas>, Error>;
 
         #[rpc(name = "eth_getBlockByHash")]
-        fn block_by_hash(&self, String, bool) -> Result<RPCBlock, Error>;
+        fn block_by_hash(&self, Hex<H256>, bool) -> Result<Option<RPCBlock>, Error>;
         #[rpc(name = "eth_getBlockByNumber")]
         fn block_by_number(&self, String, bool) -> Result<RPCBlock, Error>;
         #[rpc(name = "eth_getTransactionByHash")]

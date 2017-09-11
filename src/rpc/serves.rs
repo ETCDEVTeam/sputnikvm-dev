@@ -290,12 +290,19 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Hex(vm.real_used_gas()))
     }
 
-    fn block_by_hash(&self, hash: String, full: bool) -> Result<RPCBlock, Error> {
-        let hash = H256::from_str(&hash)?;
-        let block = miner::get_block_by_hash(hash)?;
-        let total = miner::get_total_header_by_hash(hash)?;
+    fn block_by_hash(&self, hash: Hex<H256>, full: bool) -> Result<Option<RPCBlock>, Error> {
+        let block = match miner::get_block_by_hash(hash.0) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let total = match miner::get_total_header_by_hash(hash.0) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
 
-        Ok(to_rpc_block(block, total, full))
+        Ok(Some(to_rpc_block(block, total, full)))
     }
 
     fn block_by_number(&self, number: String, full: bool) -> Result<RPCBlock, Error> {

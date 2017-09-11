@@ -168,35 +168,35 @@ pub fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: 
     let logs_bloom: H2048 = block.header.logs_bloom.clone().into();
 
     RPCBlock {
-        number: format!("0x{:x}", block.header.number),
-        hash: format!("0x{:x}", block.header.header_hash()),
-        parent_hash: format!("0x{:x}", block.header.parent_hash()),
-        nonce: format!("0x{:x}", block.header.nonce),
-        sha3_uncles: format!("0x{:x}", block.header.ommers_hash),
-        logs_bloom: format!("0x{:x}", logs_bloom),
-        transactions_root: format!("0x{:x}", block.header.transactions_root),
-        state_root: format!("0x{:x}", block.header.state_root),
-        receipts_root: format!("0x{:x}", block.header.receipts_root),
-        miner: format!("0x{:x}", block.header.beneficiary),
-        difficulty: format!("0x{:x}", block.header.difficulty),
-        total_difficulty: format!("0x{:x}", total_header.total_difficulty()),
+        number: Hex(block.header.number),
+        hash: Hex(block.header.header_hash()),
+        parent_hash: Hex(block.header.parent_hash()),
+        nonce: Hex(block.header.nonce),
+        sha3_uncles: Hex(block.header.ommers_hash),
+        logs_bloom: Hex(logs_bloom),
+        transactions_root: Hex(block.header.transactions_root),
+        state_root: Hex(block.header.state_root),
+        receipts_root: Hex(block.header.receipts_root),
+        miner: Hex(block.header.beneficiary),
+        difficulty: Hex(block.header.difficulty),
+        total_difficulty: Hex(total_header.total_difficulty()),
 
         // TODO: change this to the correct one after the Typhoon is over...
-        extra_data: to_hex(&rlp::encode(&block.header.extra_data).to_vec()),
+        extra_data: Bytes(rlp::encode(&block.header.extra_data).to_vec()),
 
-        size: format!("0x{:x}", rlp::encode(&block.header).to_vec().len()),
-        gas_limit: format!("0x{:x}", block.header.gas_limit),
-        gas_used: format!("0x{:x}", block.header.gas_used),
-        timestamp: format!("0x{:x}", block.header.timestamp),
+        size: Hex(rlp::encode(&block.header).to_vec().len()),
+        gas_limit: Hex(block.header.gas_limit),
+        gas_used: Hex(block.header.gas_used),
+        timestamp: Hex(block.header.timestamp),
         transactions: if full_transactions {
             Either::Right(block.transactions.iter().map(|t| to_rpc_transaction(t.clone(), Some(&block))).collect())
         } else {
             Either::Left(block.transactions.iter().map(|t| {
                 let encoded = rlp::encode(t).to_vec();
-                format!("0x{:x}", H256::from(Keccak256::digest(&encoded).as_slice()))
+                Hex(H256::from(Keccak256::digest(&encoded).as_slice()))
             }).collect())
         },
-        uncles: block.ommers.iter().map(|u| format!("0x{:x}", u.header_hash())).collect(),
+        uncles: block.ommers.iter().map(|u| Hex(u.header_hash())).collect(),
     }
 }
 
