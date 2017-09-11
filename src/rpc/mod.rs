@@ -171,11 +171,11 @@ build_rpc_trait! {
         #[rpc(name = "eth_getBlockByNumber")]
         fn block_by_number(&self, String, bool) -> Result<Option<RPCBlock>, Error>;
         #[rpc(name = "eth_getTransactionByHash")]
-        fn transaction_by_hash(&self, String) -> Result<RPCTransaction, Error>;
+        fn transaction_by_hash(&self, Hex<H256>) -> Result<Option<RPCTransaction>, Error>;
         #[rpc(name = "eth_getTransactionByBlockHashAndIndex")]
-        fn transaction_by_block_hash_and_index(&self, String, String) -> Result<RPCTransaction, Error>;
+        fn transaction_by_block_hash_and_index(&self, Hex<H256>, Hex<U256>) -> Result<Option<RPCTransaction>, Error>;
         #[rpc(name = "eth_getTransactionByBlockNumberAndIndex")]
-        fn transaction_by_block_number_and_index(&self, String, String) -> Result<RPCTransaction, Error>;
+        fn transaction_by_block_number_and_index(&self, Hex<U256>, Hex<U256>) -> Result<Option<RPCTransaction>, Error>;
         #[rpc(name = "eth_getTransactionReceipt")]
         fn transaction_receipt(&self, String) -> Result<Option<RPCReceipt>, Error>;
         #[rpc(name = "eth_getUncleByBlockHashAndIndex")]

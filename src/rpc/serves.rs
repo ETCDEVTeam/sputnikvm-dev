@@ -321,33 +321,36 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Some(to_rpc_block(block, total, full)))
     }
 
-    fn transaction_by_hash(&self, hash: String) -> Result<RPCTransaction, Error> {
-        let hash = H256::from_str(&hash)?;
-        let transaction = miner::get_transaction_by_hash(hash)?;
-        let block = match miner::get_transaction_block_hash_by_hash(hash) {
+    fn transaction_by_hash(&self, hash: Hex<H256>) -> Result<Option<RPCTransaction>, Error> {
+        let transaction = match miner::get_transaction_by_hash(hash.0) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let block = match miner::get_transaction_block_hash_by_hash(hash.0) {
             Ok(block_hash) => miner::get_block_by_hash(block_hash).ok(),
             Err(_) => None,
         };
 
-        Ok(to_rpc_transaction(transaction, block.as_ref()))
+        Ok(Some(to_rpc_transaction(transaction, block.as_ref())))
     }
 
-    fn transaction_by_block_hash_and_index(&self, block_hash: String, index: String) -> Result<RPCTransaction, Error> {
-        let index = U256::from_str(&index)?.as_usize();
-        let block_hash = H256::from_str(&block_hash)?;
-        let block = miner::get_block_by_hash(block_hash)?;
-        let transaction = block.transactions[index].clone();
+    fn transaction_by_block_hash_and_index(&self, block_hash: Hex<H256>, index: Hex<U256>) -> Result<Option<RPCTransaction>, Error> {
+        let block = match miner::get_block_by_hash(block_hash.0) {
+            Ok(val) => val,
+            Err(Error::NotFound) => return Ok(None),
+            Err(e) => return Err(e.into()),
+        };
+        let transaction = block.transactions[index.0.as_usize()].clone();
 
-        Ok(to_rpc_transaction(transaction, Some(&block)))
+        Ok(Some(to_rpc_transaction(transaction, Some(&block))))
     }
 
-    fn transaction_by_block_number_and_index(&self, number: String, index: String) -> Result<RPCTransaction, Error> {
-        let index = U256::from_str(&index)?.as_usize();
-        let number = U256::from_str(&number)?.as_usize();
-        let block = miner::get_block_by_number(number);
-        let transaction = block.transactions[index].clone();
+    fn transaction_by_block_number_and_index(&self, number: Hex<U256>, index: Hex<U256>) -> Result<Option<RPCTransaction>, Error> {
+        let block = miner::get_block_by_number(number.0.as_usize());
+        let transaction = block.transactions[index.0.as_usize()].clone();
 
-        Ok(to_rpc_transaction(transaction, Some(&block)))
+        Ok(Some(to_rpc_transaction(transaction, Some(&block))))
     }
 
     fn transaction_receipt(&self, hash: String) -> Result<Option<RPCReceipt>, Error> {
