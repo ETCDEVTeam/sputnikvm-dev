@@ -152,7 +152,7 @@ build_rpc_trait! {
         #[rpc(name = "eth_getUncleCountByBlockHash")]
 		fn block_uncles_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getUncleCountByBlockNumber")]
-		fn block_uncles_count_by_number(&self, String) -> Result<Option<String>, Error>;
+		fn block_uncles_count_by_number(&self, String) -> Result<Option<Hex<usize>>, Error>;
 		#[rpc(name = "eth_getCode")]
 		fn code(&self, String, Trailing<String>) -> Result<String, Error>;
         #[rpc(name = "eth_sign")]
