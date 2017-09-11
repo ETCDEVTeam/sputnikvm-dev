@@ -146,7 +146,7 @@ build_rpc_trait! {
         #[rpc(name = "eth_getTransactionCount")]
 		fn transaction_count(&self, Hex<Address>, Trailing<String>) -> Result<Hex<usize>, Error>;
         #[rpc(name = "eth_getBlockTransactionCountByHash")]
-		fn block_transaction_count_by_hash(&self, String) -> Result<Option<String>, Error>;
+		fn block_transaction_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getBlockTransactionCountByNumber")]
 		fn block_transaction_count_by_number(&self, String) -> Result<Option<String>, Error>;
         #[rpc(name = "eth_getUncleCountByBlockHash")]
