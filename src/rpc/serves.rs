@@ -76,15 +76,15 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(format!("{}", 0))
     }
 
-    fn gas_price(&self) -> Result<String, Error> {
-        Ok(format!("0x{:x}", 0))
+    fn gas_price(&self) -> Result<Hex<Gas>, Error> {
+        Ok(Hex(Gas::zero()))
     }
 
-    fn accounts(&self) -> Result<Vec<String>, Error> {
+    fn accounts(&self) -> Result<Vec<Hex<Address>>, Error> {
         Ok(miner::accounts().iter().map(|key| {
             Address::from_secret_key(key).unwrap()
         }).map(|address| {
-            format!("0x{:x}", address)
+            Hex(address)
         }).collect())
     }
 
