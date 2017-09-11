@@ -5,7 +5,7 @@ use jsonrpc_macros::Trailing;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{self, Value};
-use bigint::H256;
+use bigint::{H256, Address};
 use std::net::SocketAddr;
 use std::sync::mpsc::{channel, Sender, Receiver};
 
@@ -121,14 +121,14 @@ build_rpc_trait! {
         #[rpc(name = "net_listening")]
 		fn is_listening(&self) -> Result<bool, Error>;
 		#[rpc(name = "net_peerCount")]
-		fn peer_count(&self) -> Result<String, Error>;
+		fn peer_count(&self) -> Result<Hex<usize>, Error>;
 
 		#[rpc(name = "eth_protocolVersion")]
 		fn protocol_version(&self) -> Result<String, Error>;
 		#[rpc(name = "eth_syncing")]
 		fn is_syncing(&self) -> Result<bool, Error>;
         #[rpc(name = "eth_coinbase")]
-		fn coinbase(&self) -> Result<String, Error>;
+		fn coinbase(&self) -> Result<Hex<Address>, Error>;
         #[rpc(name = "eth_mining")]
 		fn is_mining(&self) -> Result<bool, Error>;
 		#[rpc(name = "eth_hashrate")]

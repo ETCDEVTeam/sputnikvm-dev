@@ -52,8 +52,8 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(false)
     }
 
-    fn peer_count(&self) -> Result<String, Error> {
-        Ok(format!("0x{:x}", 0))
+    fn peer_count(&self) -> Result<Hex<usize>, Error> {
+        Ok(Hex(0))
     }
 
     fn protocol_version(&self) -> Result<String, Error> {
@@ -64,8 +64,8 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(false)
     }
 
-    fn coinbase(&self) -> Result<String, Error> {
-        Ok(format!("0x{:x}", Address::default()))
+    fn coinbase(&self) -> Result<Hex<Address>, Error> {
+        Ok(Hex(Address::default()))
     }
 
     fn is_mining(&self) -> Result<bool, Error> {
