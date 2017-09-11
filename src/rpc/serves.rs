@@ -1,6 +1,7 @@
 use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter};
 use super::util::*;
 use super::filter::*;
+use super::serialize::*;
 
 use error::Error;
 use miner;
@@ -38,9 +39,9 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok("sputnikvm-dev/v0.1".to_string())
     }
 
-    fn sha3(&self, data: String) -> Result<String, Error> {
+    fn sha3(&self, data: Bytes) -> Result<Hex<H256>, Error> {
         use sha3::{Digest, Keccak256};
-        Ok(to_hex(Keccak256::digest(&read_hex(&data)?).as_slice()))
+        Ok(Hex(H256::from(Keccak256::digest(&data.0).as_slice())))
     }
 
     fn network_id(&self) -> Result<String, Error> {

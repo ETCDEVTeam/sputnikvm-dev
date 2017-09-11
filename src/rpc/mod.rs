@@ -16,6 +16,7 @@ mod serialize;
 
 use error::Error;
 use super::miner;
+use self::serialize::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -113,7 +114,7 @@ build_rpc_trait! {
 		#[rpc(name = "web3_clientVersion")]
 		fn client_version(&self) -> Result<String, Error>;
 		#[rpc(name = "web3_sha3")]
-		fn sha3(&self, String) -> Result<String, Error>;
+		fn sha3(&self, Bytes) -> Result<Hex<H256>, Error>;
 
 		#[rpc(name = "net_version")]
 		fn network_id(&self) -> Result<String, Error>;
