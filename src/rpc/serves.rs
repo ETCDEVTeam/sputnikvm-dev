@@ -110,24 +110,22 @@ impl EthereumRPC for MinerEthereumRPC {
         }
     }
 
-    fn storage_at(&self, address: String, index: String, block: Trailing<String>) -> Result<String, Error> {
-        let address = Address::from_str(&address)?;
-        let index = U256::from_str(&index)?;
+    fn storage_at(&self, address: Hex<Address>, index: Hex<U256>, block: Trailing<String>) -> Result<Hex<M256>, Error> {
         let block = from_block_number(block)?;
 
         let block = miner::get_block_by_number(block);
         let stateful = miner::stateful();
         let trie = stateful.state_of(block.header.state_root);
 
-        let account: Option<Account> = trie.get(&address);
+        let account: Option<Account> = trie.get(&address.0);
         match account {
             Some(account) => {
                 let storage = stateful.storage_state_of(account.storage_root);
-                let value = storage.get(&H256::from(index)).unwrap_or(M256::zero());
-                Ok(format!("0x{:x}", value))
+                let value = storage.get(&H256::from(index.0)).unwrap_or(M256::zero());
+                Ok(Hex(value))
             },
             None => {
-                Ok(format!("0x{:x}", 0))
+                Ok(Hex(M256::zero()))
             },
         }
     }
