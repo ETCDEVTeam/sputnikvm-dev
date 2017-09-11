@@ -159,7 +159,7 @@ build_rpc_trait! {
         #[rpc(name = "eth_sendTransaction")]
         fn send_transaction(&self, RPCTransaction) -> Result<Hex<H256>, Error>;
         #[rpc(name = "eth_sendRawTransaction")]
-        fn send_raw_transaction(&self, String) -> Result<String, Error>;
+        fn send_raw_transaction(&self, Bytes) -> Result<Hex<H256>, Error>;
 
         #[rpc(name = "eth_call")]
         fn call(&self, RPCTransaction, Trailing<String>) -> Result<String, Error>;

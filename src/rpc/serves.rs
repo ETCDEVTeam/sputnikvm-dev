@@ -248,17 +248,16 @@ impl EthereumRPC for MinerEthereumRPC {
         Ok(Hex(hash))
     }
 
-    fn send_raw_transaction(&self, data: String) -> Result<String, Error> {
+    fn send_raw_transaction(&self, data: Bytes) -> Result<Hex<H256>, Error> {
         let stateful = miner::stateful();
-        let data = read_hex(&data)?;
-        let rlp = UntrustedRlp::new(&data);
+        let rlp = UntrustedRlp::new(&data.0);
         let transaction: Transaction = rlp.as_val()?;
 
         stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
 
         let hash = miner::append_pending_transaction(transaction);
         self.channel.send(true);
-        Ok(format!("0x{:x}", hash))
+        Ok(Hex(hash))
     }
 
     fn call(&self, transaction: RPCTransaction, block: Trailing<String>) -> Result<String, Error> {
