@@ -71,3 +71,13 @@ Below is a list of all the supported RPC endpoints by `sputnikvm-dev`.
 * [eth_getFilterChanges](#eth_getfilterchanges)
 * [eth_getFilterLogs](#eth_getfilterlogs)
 * [eth_getLogs](#eth_getlogs)
+
+## Planned Debug Endpoints
+
+* debug_dumpBlock
+* debug_getBlockRlp
+* debug_traceBlock
+* debug_traceBlockByNumber
+* debug_traceBlockByHash
+* debug_traceBlockFromFile
+* debug_traceTransaction
