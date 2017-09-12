@@ -20,14 +20,10 @@ use hexutil::*;
 
 mod state;
 
-pub use self::state::{append_pending_transaction,
-                      block_height, get_block_by_hash, get_block_by_number, current_block,
-                      get_transaction_by_hash, stateful, accounts, append_account,
-                      get_total_header_by_hash, get_total_header_by_number,
-                      get_transaction_block_hash_by_hash, get_receipt_by_transaction_hash,
-                      all_pending_transaction_hashes, get_last_256_block_hashes};
+pub use self::state::MinerState;
 
 fn next<'a>(
+    state: &mut MinerState,
     current_block: &Block, transactions: &[Transaction], receipts: &[Receipt],
     beneficiary: Address, gas_limit: Gas, state_root: H256,
 ) -> Block {
@@ -49,7 +45,7 @@ fn next<'a>(
         transactions_trie.insert(rlp::encode(&i).to_vec(), transaction_rlp.clone());
         receipts_trie.insert(rlp::encode(&i).to_vec(), receipt_rlp.clone());
 
-        state::insert_receipt(transaction_hash, receipts[i].clone());
+        state.insert_receipt(transaction_hash, receipts[i].clone());
 
         logs_bloom = logs_bloom | receipts[i].logs_bloom.clone();
         gas_used = gas_used + receipts[i].used_gas.clone();
@@ -87,72 +83,73 @@ fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
-pub fn mine_loop(genesis_accounts: Vec<(SecretKey, U256)>, channel: Receiver<bool>) {
-    let patch = &vm::EIP160_PATCH;
+pub fn make_state(genesis_accounts: Vec<(SecretKey, U256)>, patch: &'static Patch) -> MinerState {
+    let mut genesis = Block {
+        header: Header {
+            parent_hash: H256::default(),
+            // TODO: use the known good result from etclient
+            ommers_hash: MemoryDatabase::default().create_empty().root(),
+            beneficiary: Address::default(),
+            state_root: stateful.root(),
+            transactions_root: MemoryDatabase::default().create_empty().root(),
+            receipts_root: MemoryDatabase::default().create_empty().root(),
+            logs_bloom: LogsBloom::new(),
+            number: U256::zero(),
+            gas_limit: Gas::zero(),
+            gas_used: Gas::zero(),
+            timestamp: current_timestamp(),
+            extra_data: B256::default(),
 
-    {
-        let mut stateful = state::stateful();
+            difficulty: U256::zero(),
+            mix_hash: H256::default(),
+            nonce: H64::default(),
+        },
+        transactions: Vec::new(),
+        ommers: Vec::new(),
+    };
 
-        let mut genesis = Block {
-            header: Header {
-                parent_hash: H256::default(),
-                // TODO: use the known good result from etclient
-                ommers_hash: MemoryDatabase::default().create_empty().root(),
-                beneficiary: Address::default(),
-                state_root: stateful.root(),
-                transactions_root: MemoryDatabase::default().create_empty().root(),
-                receipts_root: MemoryDatabase::default().create_empty().root(),
-                logs_bloom: LogsBloom::new(),
-                number: U256::zero(),
-                gas_limit: Gas::zero(),
-                gas_used: Gas::zero(),
-                timestamp: current_timestamp(),
-                extra_data: B256::default(),
+    for (secret_key, balance) in genesis_accounts {
+        let address = Address::from_secret_key(&secret_key).unwrap();
 
-                difficulty: U256::zero(),
-                mix_hash: H256::default(),
-                nonce: H64::default(),
-            },
-            transactions: Vec::new(),
-            ommers: Vec::new(),
-        };
-
-        for (secret_key, balance) in genesis_accounts {
-            let address = Address::from_secret_key(&secret_key).unwrap();
-
-            let vm: SeqTransactionVM = stateful.execute(ValidTransaction {
-                caller: None,
-                gas_price: Gas::zero(),
-                gas_limit: Gas::from(100000usize),
-                action: TransactionAction::Call(address),
-                value: balance,
-                input: Vec::new(),
-                nonce: U256::zero(),
-            }, HeaderParams::from(&genesis.header), patch, &[]);
-
-            println!("address: {:?}", address);
-            println!("private key: {}", to_hex(&secret_key[..]));
-
-            state::append_account(secret_key);
-        }
-
-        genesis.header.state_root = stateful.root();
-        state::append_block(genesis);
+        let vm: SeqTransactionVM = stateful.execute(ValidTransaction {
+            caller: None,
+            gas_price: Gas::zero(),
+            gas_limit: Gas::from(100000usize),
+            action: TransactionAction::Call(address),
+            value: balance,
+            input: Vec::new(),
+            nonce: U256::zero(),
+        }, HeaderParams::from(&genesis.header), patch, &[]);
     }
 
+    genesis.header.state_root = stateful.root();
+
+    let state = MinerState::new(genesis, stateful);
+
+    for (secret_key, balance) in genesis_accounts {
+        println!("address: {:?}", address);
+        println!("private key: {}", to_hex(&secret_key[..]));
+
+        state.append_account(secret_key);
+    }
+
+    state
+}
+
+pub fn mine_loop(state: Arc<Mutex<MinerState>>, channel: Receiver<bool>, patch: &'static Patch) {
     loop {
-        mine_one(Address::default(), patch);
+        mine_one(state.clone(), Address::default(), patch);
 
         channel.recv_timeout(Duration::new(10, 0));
     }
 }
 
-pub fn mine_one(address: Address, patch: &'static Patch) {
-    let mut stateful = state::stateful();
+pub fn mine_one(state: Arc<Mutex<MinerState>>, address: Address, patch: &'static Patch) {
+    let state = state.lock.unwrap();
 
-    let current_block = state::current_block();
-    let transactions = state::clear_pending_transactions();
-    let block_hashes = state::get_last_256_block_hashes();
+    let current_block = state.current_block();
+    let transactions = state.clear_pending_transactions();
+    let block_hashes = state.get_last_256_block_hashes();
 
     let beneficiary = address;
 
@@ -187,5 +184,5 @@ pub fn mine_one(address: Address, patch: &'static Patch) {
                           beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
                           stateful.root());
     debug!("block number: 0x{:x}", next_block.header.number);
-    state::append_block(next_block);
+    state.append_block(next_block);
 }
