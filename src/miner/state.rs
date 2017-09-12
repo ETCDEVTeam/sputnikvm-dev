@@ -37,11 +37,11 @@ impl MinerState {
 
         let value = rlp::encode(&genesis).to_vec();
         let hash = genesis.header.header_hash();
-        block_database.insert(hash, block.clone());
+        block_database.insert(hash, genesis.clone());
 
         assert!(genesis.transactions.len() == 0);
 
-        total_headers.insert(hash, TotalHeader::from_genesis(genesis.header.clone()));
+        total_header_database.insert(hash, TotalHeader::from_genesis(genesis.header.clone()));
         block_hashes.push(hash);
 
         let current_block = hash;
@@ -52,7 +52,7 @@ impl MinerState {
 
             all_pending_transaction_hashes: Vec::new(),
             pending_transaction_hashes: Vec::new(),
-            transaction_Database: HashMap::new(),
+            transaction_database: HashMap::new(),
             receipt_database: HashMap::new(),
 
             accounts: Vec::new(),
@@ -72,8 +72,8 @@ impl MinerState {
 
     pub fn clear_pending_transactions(&mut self) -> Vec<Transaction> {
         let transaction_hashes = {
-            let ret_hashes = self.pending_transactions.clone();
-            self.pending_transactions.clear();
+            let ret_hashes = self.pending_transaction_hashes.clone();
+            self.pending_transaction_hashes.clear();
             ret_hashes
         };
 
@@ -95,11 +95,11 @@ impl MinerState {
 
         for transaction in &block.transactions {
             let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
-            self.block_transaction_hashes.insert(transaction_hash, hash);
+            self.transaction_block_hashes.insert(transaction_hash, hash);
         }
 
         assert!(self.block_hashes.len() > 0);
-        let parent_hash = self.block_hashes[block_hashes.len() - 1];
+        let parent_hash = self.block_hashes[self.block_hashes.len() - 1];
         let parent = self.total_header_database.get(&parent_hash).unwrap().clone();
         self.total_header_database.insert(hash, TotalHeader::from_parent(block.header.clone(), &parent));
 

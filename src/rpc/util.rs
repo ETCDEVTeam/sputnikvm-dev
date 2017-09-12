@@ -2,7 +2,7 @@ use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, R
 use super::filter::*;
 use super::serialize::*;
 use error::Error;
-use miner;
+use miner::MinerState;
 
 use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, H2048, Address, Gas};
@@ -310,10 +310,10 @@ pub fn from_topic_filter(filter: Option<RPCTopicFilter>) -> Result<TopicFilter, 
     })
 }
 
-pub fn from_log_filter(filter: RPCLogFilter) -> Result<LogFilter, Error> {
+pub fn from_log_filter(state: &MinerState, filter: RPCLogFilter) -> Result<LogFilter, Error> {
     Ok(LogFilter {
-        from_block: from_block_number(filter.from_block)?,
-        to_block: from_block_number(filter.to_block)?,
+        from_block: from_block_number(state, filter.from_block)?,
+        to_block: from_block_number(state, filter.to_block)?,
         address: match filter.address {
             Some(val) => Some(Address::from_str(&val)?),
             None => None,

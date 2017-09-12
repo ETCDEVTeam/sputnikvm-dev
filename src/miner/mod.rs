@@ -10,9 +10,11 @@ use std::thread;
 use std::str::FromStr;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use sputnikvm::vm::{self, ValidTransaction, Patch, AccountCommitment, AccountState, HeaderParams, SeqTransactionVM, VM};
 use sputnikvm::vm::errors::RequireError;
+use sputnikvm_stateful::MemoryStateful;
 use rand::os::OsRng;
 use sha3::{Digest, Keccak256};
 use blockchain::chain::HeaderHash;
@@ -84,6 +86,7 @@ fn current_timestamp() -> u64 {
 }
 
 pub fn make_state(genesis_accounts: Vec<(SecretKey, U256)>, patch: &'static Patch) -> MinerState {
+    let mut stateful = MemoryStateful::default();
     let mut genesis = Block {
         header: Header {
             parent_hash: H256::default(),
@@ -108,8 +111,8 @@ pub fn make_state(genesis_accounts: Vec<(SecretKey, U256)>, patch: &'static Patc
         ommers: Vec::new(),
     };
 
-    for (secret_key, balance) in genesis_accounts {
-        let address = Address::from_secret_key(&secret_key).unwrap();
+    for &(ref secret_key, balance) in &genesis_accounts {
+        let address = Address::from_secret_key(secret_key).unwrap();
 
         let vm: SeqTransactionVM = stateful.execute(ValidTransaction {
             caller: None,
@@ -124,9 +127,10 @@ pub fn make_state(genesis_accounts: Vec<(SecretKey, U256)>, patch: &'static Patc
 
     genesis.header.state_root = stateful.root();
 
-    let state = MinerState::new(genesis, stateful);
+    let mut state = MinerState::new(genesis, stateful);
 
     for (secret_key, balance) in genesis_accounts {
+        let address = Address::from_secret_key(&secret_key).unwrap();
         println!("address: {:?}", address);
         println!("private key: {}", to_hex(&secret_key[..]));
 
@@ -145,7 +149,7 @@ pub fn mine_loop(state: Arc<Mutex<MinerState>>, channel: Receiver<bool>, patch: 
 }
 
 pub fn mine_one(state: Arc<Mutex<MinerState>>, address: Address, patch: &'static Patch) {
-    let state = state.lock.unwrap();
+    let mut state = state.lock().unwrap();
 
     let current_block = state.current_block();
     let transactions = state.clear_pending_transactions();
@@ -156,8 +160,8 @@ pub fn mine_one(state: Arc<Mutex<MinerState>>, address: Address, patch: &'static
     let mut receipts = Vec::new();
 
     for transaction in transactions.clone() {
-        let valid = stateful.to_valid(transaction, patch).unwrap();
-        let vm: SeqTransactionVM = stateful.execute(
+        let valid = state.stateful_mut().to_valid(transaction, patch).unwrap();
+        let vm: SeqTransactionVM = state.stateful_mut().execute(
             valid, HeaderParams::from(&current_block.header),
             patch, &block_hashes);
 
@@ -175,14 +179,15 @@ pub fn mine_one(state: Arc<Mutex<MinerState>>, address: Address, patch: &'static
             used_gas: used_gas.clone(),
             logs,
             logs_bloom: logs_bloom.clone(),
-            state_root: stateful.root(),
+            state_root: state.stateful_mut().root(),
         };
         receipts.push(receipt);
     }
 
-    let next_block = next(&current_block, transactions.as_ref(), receipts.as_ref(),
+    let root = state.stateful_mut().root();
+    let next_block = next(&mut state, &current_block, transactions.as_ref(), receipts.as_ref(),
                           beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
-                          stateful.root());
+                          root);
     debug!("block number: 0x{:x}", next_block.header.number);
     state.append_block(next_block);
 }

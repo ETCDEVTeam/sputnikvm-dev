@@ -4,7 +4,7 @@ use super::filter::*;
 use super::serialize::*;
 
 use error::Error;
-use miner;
+use miner::MinerState;
 
 use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, H2048, Address, Gas};
@@ -13,14 +13,14 @@ use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, Uns
 use blockchain::chain::HeaderHash;
 use sputnikvm::vm::{self, ValidTransaction, SeqTransactionVM, VM, HeaderParams};
 use std::str::FromStr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
 
 use jsonrpc_macros::Trailing;
 
 pub struct MinerEthereumRPC {
     filter: Mutex<FilterManager>,
-    state: Arc<Mutex<MinerState>,
+    state: Arc<Mutex<MinerState>>,
     channel: Sender<bool>,
 }
 
@@ -29,7 +29,7 @@ unsafe impl Sync for MinerEthereumRPC { }
 impl MinerEthereumRPC {
     pub fn new(state: Arc<Mutex<MinerState>>, channel: Sender<bool>) -> Self {
         MinerEthereumRPC {
-            filter: Mutex::new(state.clone(), FilterManager::new()),
+            filter: Mutex::new(FilterManager::new(state.clone())),
             channel,
             state,
         }
@@ -101,7 +101,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn balance(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Hex<U256>, Error> {
         let state = self.state.lock().unwrap();
 
-        let block = from_block_number(block)?;
+        let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
         let stateful = state.stateful();
@@ -121,7 +121,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn storage_at(&self, address: Hex<Address>, index: Hex<U256>, block: Trailing<String>) -> Result<Hex<M256>, Error> {
         let state = self.state.lock().unwrap();
 
-        let block = from_block_number(block)?;
+        let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
         let stateful = state.stateful();
@@ -143,7 +143,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn transaction_count(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Hex<usize>, Error> {
         let state = self.state.lock().unwrap();
 
-        let block = from_block_number(block)?;
+        let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
         let mut count = 0;
@@ -172,7 +172,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn block_transaction_count_by_number(&self, number: String) -> Result<Option<Hex<usize>>, Error> {
         let state = self.state.lock().unwrap();
 
-        let number = match from_block_number(number) {
+        let number = match from_block_number(&state, number) {
             Ok(val) => val,
             Err(Error::NotFound) => return Ok(None),
             Err(e) => return Err(e.into()),
@@ -197,7 +197,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn block_uncles_count_by_number(&self, number: String) -> Result<Option<Hex<usize>>, Error> {
         let state = self.state.lock().unwrap();
 
-        let number = match from_block_number(number) {
+        let number = match from_block_number(&state, number) {
             Ok(val) => val,
             Err(Error::NotFound) => return Ok(None),
             Err(e) => return Err(e.into()),
@@ -210,7 +210,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn code(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Bytes, Error> {
         let state = self.state.lock().unwrap();
 
-        let block = from_block_number(block)?;
+        let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
         let stateful = state.stateful();
@@ -262,12 +262,16 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn send_transaction(&self, transaction: RPCTransaction) -> Result<Hex<H256>, Error> {
-        let state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap();
 
-        let stateful = state.stateful();
-        let transaction = to_signed_transaction(transaction, &stateful)?;
 
-        stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
+        let (valid, transaction) = {
+            let stateful = state.stateful();
+            let transaction = to_signed_transaction(&state, transaction, &stateful)?;
+            let valid = stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
+
+            (valid, transaction)
+        };
 
         let hash = state.append_pending_transaction(transaction);
         self.channel.send(true);
@@ -275,13 +279,15 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn send_raw_transaction(&self, data: Bytes) -> Result<Hex<H256>, Error> {
-        let state = self.state.lock().unwrap();
+        let mut state = self.state.lock().unwrap();
 
-        let stateful = state.stateful();
         let rlp = UntrustedRlp::new(&data.0);
         let transaction: Transaction = rlp.as_val()?;
 
-        stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
+        {
+            let stateful = state.stateful();
+            stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
+        }
 
         let hash = state.append_pending_transaction(transaction);
         self.channel.send(true);
@@ -293,8 +299,8 @@ impl EthereumRPC for MinerEthereumRPC {
 
         let stateful = state.stateful();
 
-        let valid = to_valid_transaction(transaction, &stateful)?;
-        let block = from_block_number(block)?;
+        let valid = to_valid_transaction(&state, transaction, &stateful)?;
+        let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
 
@@ -310,8 +316,8 @@ impl EthereumRPC for MinerEthereumRPC {
 
         let stateful = state.stateful();
 
-        let valid = to_valid_transaction(transaction, &stateful)?;
-        let block = from_block_number(block)?;
+        let valid = to_valid_transaction(&state, transaction, &stateful)?;
+        let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
 
@@ -342,7 +348,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn block_by_number(&self, number: String, full: bool) -> Result<Option<RPCBlock>, Error> {
         let state = self.state.lock().unwrap();
 
-        let number = match from_block_number(Some(number)) {
+        let number = match from_block_number(&state, Some(number)) {
             Ok(val) => val,
             Err(Error::NotFound) => return Ok(None),
             Err(e) => return Err(e.into()),
@@ -392,7 +398,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn transaction_by_block_number_and_index(&self, number: String, index: Hex<U256>) -> Result<Option<RPCTransaction>, Error> {
         let state = self.state.lock().unwrap();
 
-        let number = match from_block_number(Some(number)) {
+        let number = match from_block_number(&state, Some(number)) {
             Ok(val) => val,
             Err(Error::NotFound) => return Ok(None),
             Err(e) => return Err(e.into()),
@@ -429,7 +435,7 @@ impl EthereumRPC for MinerEthereumRPC {
         if block.is_none() {
             Ok(None)
         } else {
-            Ok(Some(to_rpc_receipt(receipt, &transaction, &block.unwrap())?))
+            Ok(Some(to_rpc_receipt(&state, receipt, &transaction, &block.unwrap())?))
         }
     }
 
@@ -461,7 +467,7 @@ impl EthereumRPC for MinerEthereumRPC {
     fn uncle_by_block_number_and_index(&self, block_number: String, index: Hex<U256>) -> Result<Option<RPCBlock>, Error> {
         let state = self.state.lock().unwrap();
 
-        let block_number = match from_block_number(Some(block_number)) {
+        let block_number = match from_block_number(&state, Some(block_number)) {
             Ok(val) => val,
             Err(Error::NotFound) => return Ok(None),
             Err(e) => return Err(e.into()),
@@ -488,7 +494,10 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn new_filter(&self, log: RPCLogFilter) -> Result<String, Error> {
-        let filter = from_log_filter(log)?;
+        let filter = {
+            let state = self.state.lock().unwrap();
+            from_log_filter(&state, log)?
+        };
         let id = self.filter.lock().unwrap().install_log_filter(filter);
         Ok(format!("0x{:x}", id))
     }
@@ -520,8 +529,10 @@ impl EthereumRPC for MinerEthereumRPC {
     }
 
     fn logs(&self, log: RPCLogFilter) -> Result<Vec<RPCLog>, Error> {
-        match from_log_filter(log) {
-            Ok(filter) => Ok(get_logs(filter)?),
+        let state = self.state.lock().unwrap();
+
+        match from_log_filter(&state, log) {
+            Ok(filter) => Ok(get_logs(&state, filter)?),
             Err(_) => Ok(Vec::new()),
         }
     }

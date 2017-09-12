@@ -4,6 +4,7 @@ use block::{Log, Receipt};
 use sha3::{Digest, Keccak256};
 use std::str::FromStr;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use blockchain::chain::HeaderHash;
 
 use super::{RPCLog, Either};
@@ -11,7 +12,7 @@ use super::util::*;
 
 use error::Error;
 use rlp;
-use miner;
+use miner::MinerState;
 
 #[derive(Clone, Debug)]
 pub enum TopicFilter {
@@ -53,19 +54,19 @@ fn check_log(log: &Log, index: usize, filter: &TopicFilter) -> bool {
     }
 }
 
-pub fn get_logs(filter: LogFilter) -> Result<Vec<RPCLog>, Error> {
+pub fn get_logs(state: &MinerState, filter: LogFilter) -> Result<Vec<RPCLog>, Error> {
     let mut current_block_number = filter.from_block;
     let mut ret = Vec::new();
 
     while current_block_number >= filter.to_block {
-        if current_block_number > miner::block_height() {
+        if current_block_number > state.block_height() {
             break;
         }
 
-        let block = miner::get_block_by_number(current_block_number);
+        let block = state.get_block_by_number(current_block_number);
         for transaction in &block.transactions {
             let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
-            let receipt = miner::get_receipt_by_transaction_hash(transaction_hash)?;
+            let receipt = state.get_receipt_by_transaction_hash(transaction_hash)?;
             for i in 0..receipt.logs.len() {
                 let log = &receipt.logs[i];
                 if check_log(log, 0, &filter.topics[0]) &&
@@ -90,7 +91,7 @@ pub fn get_logs(filter: LogFilter) -> Result<Vec<RPCLog>, Error> {
 
 pub struct FilterManager {
     filters: HashMap<usize, Filter>,
-    state: Arc<Mutex<MinerState>,
+    state: Arc<Mutex<MinerState>>,
     unmodified_filters: HashMap<usize, Filter>,
 }
 
@@ -121,6 +122,8 @@ impl FilterManager {
     }
 
     pub fn install_pending_transaction_filter(&mut self) -> usize {
+        let state = self.state.lock().unwrap();
+
         let pending_transactions = state.all_pending_transaction_hashes();
         let id = self.filters.len();
         self.filters.insert(id, Filter::PendingTransaction(pending_transactions.len()));
@@ -134,11 +137,13 @@ impl FilterManager {
     }
 
     pub fn get_logs(&mut self, id: usize) -> Result<Vec<RPCLog>, Error> {
+        let state = self.state.lock().unwrap();
+
         let filter = self.unmodified_filters.get(&id).ok_or(Error::NotFound)?;
 
         match filter {
             &Filter::Log(ref filter) => {
-                let ret = get_logs(filter.clone())?;
+                let ret = get_logs(&state, filter.clone())?;
                 Ok(ret)
             },
             _ => Err(Error::NotFound),
@@ -146,6 +151,7 @@ impl FilterManager {
     }
 
     pub fn get_changes(&mut self, id: usize) -> Result<Either<Vec<String>, Vec<RPCLog>>, Error> {
+        let state = self.state.lock().unwrap();
         let filter = self.filters.get_mut(&id).ok_or(Error::NotFound)?;
 
         match filter {
@@ -168,7 +174,7 @@ impl FilterManager {
                 Ok(Either::Left(ret))
             },
             &mut Filter::Log(ref mut filter) => {
-                let ret = get_logs(filter.clone())?;
+                let ret = get_logs(&state, filter.clone())?;
                 filter.from_block = state.block_height() + 1;
                 Ok(Either::Right(ret))
             },
