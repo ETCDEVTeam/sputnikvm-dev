@@ -81,10 +81,17 @@ fn main() {
 
     let (sender, receiver) = channel::<bool>();
 
+    let patch = &'static EIP160_PATCH;
+    let state = miner::make_state(genesis, patch);
+
+    let miner_arc = Arc::new(Mutex::new(state));
+    let rpc_arc = miner_arc.clone();
+
     thread::spawn(move || {
-        miner::mine_loop(genesis, receiver);
+        miner::mine_loop(miner_arc, genesis, receiver);
     });
 
-    rpc::rpc_loop(&matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
+    rpc::rpc_loop(rpc_arc,
+                  &matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
                   sender);
 }

@@ -95,8 +95,9 @@ pub struct FilterManager {
 }
 
 impl FilterManager {
-    pub fn new() -> Self {
+    pub fn new(state: Arc<Mutex<MinerState>>) -> Self {
         FilterManager {
+            state,
             filters: HashMap::new(),
             unmodified_filters: HashMap::new(),
         }

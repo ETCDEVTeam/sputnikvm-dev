@@ -27,10 +27,11 @@ pub struct MinerEthereumRPC {
 unsafe impl Sync for MinerEthereumRPC { }
 
 impl MinerEthereumRPC {
-    pub fn new(channel: Sender<bool>) -> Self {
+    pub fn new(state: Arc<Mutex<MinerState>>, channel: Sender<bool>) -> Self {
         MinerEthereumRPC {
-            filter: Mutex::new(FilterManager::new()),
+            filter: Mutex::new(state.clone(), FilterManager::new()),
             channel,
+            state,
         }
     }
 }

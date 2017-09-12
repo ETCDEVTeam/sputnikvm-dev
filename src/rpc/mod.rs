@@ -204,8 +204,8 @@ build_rpc_trait! {
     }
 }
 
-pub fn rpc_loop(addr: &SocketAddr, channel: Sender<bool>) {
-    let rpc = serves::MinerEthereumRPC::new(channel);
+pub fn rpc_loop(state: Arc<Mutex<MinerState>>, addr: &SocketAddr, channel: Sender<bool>) {
+    let rpc = serves::MinerEthereumRPC::new(state, channel);
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());
