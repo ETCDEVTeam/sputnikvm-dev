@@ -90,6 +90,7 @@ pub fn get_logs(filter: LogFilter) -> Result<Vec<RPCLog>, Error> {
 
 pub struct FilterManager {
     filters: HashMap<usize, Filter>,
+    state: Arc<Mutex<MinerState>,
     unmodified_filters: HashMap<usize, Filter>,
 }
 
@@ -109,7 +110,9 @@ impl FilterManager {
     }
 
     pub fn install_block_filter(&mut self) -> usize {
-        let block_height = miner::block_height();
+        let state = self.state.lock().unwrap();
+
+        let block_height = state.block_height();
         let id = self.filters.len();
         self.filters.insert(id, Filter::Block(block_height + 1));
         self.unmodified_filters.insert(id, Filter::Block(block_height + 1));
@@ -117,7 +120,7 @@ impl FilterManager {
     }
 
     pub fn install_pending_transaction_filter(&mut self) -> usize {
-        let pending_transactions = miner::all_pending_transaction_hashes();
+        let pending_transactions = state.all_pending_transaction_hashes();
         let id = self.filters.len();
         self.filters.insert(id, Filter::PendingTransaction(pending_transactions.len()));
         self.unmodified_filters.insert(id, Filter::PendingTransaction(pending_transactions.len()));
@@ -146,7 +149,7 @@ impl FilterManager {
 
         match filter {
             &mut Filter::PendingTransaction(ref mut next_start) => {
-                let pending_transactions = miner::all_pending_transaction_hashes();
+                let pending_transactions = state.all_pending_transaction_hashes();
                 let mut ret = Vec::new();
                 while *next_start < pending_transactions.len() {
                     ret.push(format!("0x{:x}", &pending_transactions[*next_start]));
@@ -156,16 +159,16 @@ impl FilterManager {
             },
             &mut Filter::Block(ref mut next_start) => {
                 let mut ret = Vec::new();
-                while *next_start <= miner::block_height() {
+                while *next_start <= state.block_height() {
                     ret.push(format!("0x{:x}",
-                                     miner::get_block_by_number(*next_start).header.header_hash()));
+                                     state.get_block_by_number(*next_start).header.header_hash()));
                     *next_start += 1;
                 }
                 Ok(Either::Left(ret))
             },
             &mut Filter::Log(ref mut filter) => {
                 let ret = get_logs(filter.clone())?;
-                filter.from_block = miner::block_height() + 1;
+                filter.from_block = state.block_height() + 1;
                 Ok(Either::Right(ret))
             },
         }
