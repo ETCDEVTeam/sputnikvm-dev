@@ -2,7 +2,7 @@ use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, R
 use super::filter::*;
 use super::serialize::*;
 use error::Error;
-use miner;
+use miner::MinerState;
 
 use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, H2048, Address, Gas};
@@ -15,17 +15,17 @@ use std::str::FromStr;
 
 use jsonrpc_macros::Trailing;
 
-pub fn from_block_number<T: Into<Option<String>>>(value: T) -> Result<usize, Error> {
+pub fn from_block_number<T: Into<Option<String>>>(state: &MinerState, value: T) -> Result<usize, Error> {
     let value: Option<String> = value.into();
 
     if value == Some("latest".to_string()) || value == Some("pending".to_string()) || value == None {
-        Ok(miner::block_height())
+        Ok(state.block_height())
     } else if value == Some("earliest".to_string()) {
         Ok(0)
     } else {
         let v: u64 = U256::from(read_hex(&value.unwrap())?.as_slice()).into();
         let v = v as usize;
-        if v > miner::block_height() {
+        if v > state.block_height() {
             Err(Error::NotFound)
         } else {
             Ok(v)
@@ -64,7 +64,7 @@ pub fn to_rpc_log(receipt: &Receipt, index: usize, transaction: &Transaction, bl
     }
 }
 
-pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block) -> Result<RPCReceipt, Error> {
+pub fn to_rpc_receipt(state: &MinerState, receipt: Receipt, transaction: &Transaction, block: &Block) -> Result<RPCReceipt, Error> {
     use sha3::{Keccak256, Digest};
 
     let transaction_hash = H256::from(Keccak256::digest(&rlp::encode(transaction).to_vec()).as_slice());
@@ -88,7 +88,7 @@ pub fn to_rpc_receipt(receipt: Receipt, transaction: &Transaction, block: &Block
 
         for i in 0..(transaction_index + 1) {
             let other_hash = H256::from(Keccak256::digest(&rlp::encode(&block.transactions[i]).to_vec()).as_slice());
-            sum = sum + miner::get_receipt_by_transaction_hash(other_hash)?.used_gas;
+            sum = sum + state.get_receipt_by_transaction_hash(other_hash)?.used_gas;
         }
         sum
     };
@@ -200,11 +200,11 @@ pub fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: 
     }
 }
 
-pub fn to_signed_transaction(transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<Transaction, Error> {
+pub fn to_signed_transaction(state: &MinerState, transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<Transaction, Error> {
     let address = transaction.from.0;
     let secret_key = {
         let mut secret_key = None;
-        for key in miner::accounts() {
+        for key in state.accounts() {
             if Address::from_secret_key(&key)? == address {
                 secret_key = Some(key);
             }
@@ -214,7 +214,7 @@ pub fn to_signed_transaction(transaction: RPCTransaction, stateful: &MemoryState
             None => return Err(Error::NotFound),
         }
     };
-    let block = miner::get_block_by_number(miner::block_height());
+    let block = state.get_block_by_number(state.block_height());
     let trie = stateful.state_of(block.header.state_root);
 
     let account: Option<Account> = trie.get(&address);
@@ -253,10 +253,10 @@ pub fn to_signed_transaction(transaction: RPCTransaction, stateful: &MemoryState
     Ok(transaction)
 }
 
-pub fn to_valid_transaction(transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<ValidTransaction, Error> {
+pub fn to_valid_transaction(state: &MinerState, transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<ValidTransaction, Error> {
     let address = transaction.from.0;
 
-    let block = miner::get_block_by_number(miner::block_height());
+    let block = state.get_block_by_number(state.block_height());
     let trie = stateful.state_of(block.header.state_root);
 
     let account: Option<Account> = trie.get(&address);
@@ -310,10 +310,10 @@ pub fn from_topic_filter(filter: Option<RPCTopicFilter>) -> Result<TopicFilter, 
     })
 }
 
-pub fn from_log_filter(filter: RPCLogFilter) -> Result<LogFilter, Error> {
+pub fn from_log_filter(state: &MinerState, filter: RPCLogFilter) -> Result<LogFilter, Error> {
     Ok(LogFilter {
-        from_block: from_block_number(filter.from_block)?,
-        to_block: from_block_number(filter.to_block)?,
+        from_block: from_block_number(state, filter.from_block)?,
+        to_block: from_block_number(state, filter.to_block)?,
         address: match filter.address {
             Some(val) => Some(Address::from_str(&val)?),
             None => None,

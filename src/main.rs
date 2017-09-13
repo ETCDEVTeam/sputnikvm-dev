@@ -30,6 +30,7 @@ mod error;
 mod miner;
 mod rpc;
 
+use miner::MinerState;
 use rand::os::OsRng;
 use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::SECP256K1;
@@ -37,7 +38,9 @@ use bigint::U256;
 use hexutil::*;
 use std::thread;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
+use sputnikvm::vm::EIP160_PATCH;
 
 fn main() {
     env_logger::init();
@@ -81,10 +84,17 @@ fn main() {
 
     let (sender, receiver) = channel::<bool>();
 
+    let patch = &EIP160_PATCH;
+    let state = miner::make_state(genesis, patch);
+
+    let miner_arc = Arc::new(Mutex::new(state));
+    let rpc_arc = miner_arc.clone();
+
     thread::spawn(move || {
-        miner::mine_loop(genesis, receiver);
+        miner::mine_loop(miner_arc, receiver, patch);
     });
 
-    rpc::rpc_loop(&matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
+    rpc::rpc_loop(rpc_arc,
+                  &matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
                   sender);
 }
