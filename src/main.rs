@@ -40,7 +40,7 @@ use std::thread;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
-use sputnikvm::vm::EIP160_PATCH;
+use sputnikvm::EIP160Patch;
 
 fn main() {
     env_logger::init();
@@ -84,17 +84,17 @@ fn main() {
 
     let (sender, receiver) = channel::<bool>();
 
-    let patch = &EIP160_PATCH;
-    let state = miner::make_state(genesis, patch);
+    let state = miner::make_state::<EIP160Patch>(genesis);
 
     let miner_arc = Arc::new(Mutex::new(state));
     let rpc_arc = miner_arc.clone();
 
     thread::spawn(move || {
-        miner::mine_loop(miner_arc, receiver, patch);
+        miner::mine_loop::<EIP160Patch>(miner_arc, receiver);
     });
 
-    rpc::rpc_loop(rpc_arc,
-                  &matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
-                  sender);
+    rpc::rpc_loop::<EIP160Patch>(
+        rpc_arc,
+        &matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
+        sender);
 }
