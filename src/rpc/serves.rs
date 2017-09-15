@@ -11,32 +11,35 @@ use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction};
 use blockchain::chain::HeaderHash;
-use sputnikvm::vm::{self, ValidTransaction, SeqTransactionVM, VM, HeaderParams};
+use sputnikvm::{AccountChange, ValidTransaction, SeqTransactionVM, VM, HeaderParams, Patch};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::marker::PhantomData;
 
 use jsonrpc_macros::Trailing;
 
-pub struct MinerEthereumRPC {
+pub struct MinerEthereumRPC<P: Patch + Send> {
     filter: Mutex<FilterManager>,
     state: Arc<Mutex<MinerState>>,
     channel: Sender<bool>,
+    _patch: PhantomData<P>,
 }
 
-unsafe impl Sync for MinerEthereumRPC { }
+unsafe impl<P: Patch + Send> Sync for MinerEthereumRPC<P> { }
 
-impl MinerEthereumRPC {
+impl<P: Patch + Send> MinerEthereumRPC<P> {
     pub fn new(state: Arc<Mutex<MinerState>>, channel: Sender<bool>) -> Self {
         MinerEthereumRPC {
             filter: Mutex::new(FilterManager::new(state.clone())),
             channel,
             state,
+            _patch: PhantomData,
         }
     }
 }
 
-impl EthereumRPC for MinerEthereumRPC {
+impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
     fn client_version(&self) -> Result<String, Error> {
         Ok("sputnikvm-dev/v0.1".to_string())
     }
@@ -268,7 +271,7 @@ impl EthereumRPC for MinerEthereumRPC {
         let (valid, transaction) = {
             let stateful = state.stateful();
             let transaction = to_signed_transaction(&state, transaction, &stateful)?;
-            let valid = stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
+            let valid = stateful.to_valid::<P>(transaction.clone())?;
 
             (valid, transaction)
         };
@@ -286,7 +289,7 @@ impl EthereumRPC for MinerEthereumRPC {
 
         {
             let stateful = state.stateful();
-            stateful.to_valid(transaction.clone(), &vm::EIP160_PATCH)?;
+            stateful.to_valid::<P>(transaction.clone())?;
         }
 
         let hash = state.append_pending_transaction(transaction);
@@ -304,8 +307,8 @@ impl EthereumRPC for MinerEthereumRPC {
 
         let block = state.get_block_by_number(block);
 
-        let vm: SeqTransactionVM = stateful.call(
-            valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
+        let vm: SeqTransactionVM<P> = stateful.call(
+            valid, HeaderParams::from(&block.header),
             &state.get_last_256_block_hashes());
 
         Ok(Bytes(vm.out().into()))
@@ -321,8 +324,8 @@ impl EthereumRPC for MinerEthereumRPC {
 
         let block = state.get_block_by_number(block);
 
-        let vm: SeqTransactionVM = stateful.call(
-            valid, HeaderParams::from(&block.header), &vm::EIP160_PATCH,
+        let vm: SeqTransactionVM<P> = stateful.call(
+            valid, HeaderParams::from(&block.header),
             &state.get_last_256_block_hashes());
 
         Ok(Hex(vm.real_used_gas()))

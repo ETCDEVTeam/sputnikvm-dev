@@ -9,6 +9,7 @@ use bigint::{U256, H256, M256, H2048, H64, Address, Gas};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
+use sputnikvm::Patch;
 
 mod serves;
 mod filter;
@@ -205,8 +206,10 @@ build_rpc_trait! {
     }
 }
 
-pub fn rpc_loop(state: Arc<Mutex<MinerState>>, addr: &SocketAddr, channel: Sender<bool>) {
-    let rpc = serves::MinerEthereumRPC::new(state, channel);
+pub fn rpc_loop<P: 'static + Patch + Send>(
+    state: Arc<Mutex<MinerState>>, addr: &SocketAddr, channel: Sender<bool>
+) {
+    let rpc = serves::MinerEthereumRPC::<P>::new(state, channel);
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());

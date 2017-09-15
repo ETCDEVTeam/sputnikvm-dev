@@ -1,6 +1,6 @@
 use jsonrpc_core;
 use secp256k1;
-use sputnikvm::vm::errors::PreExecutionError;
+use sputnikvm::errors::PreExecutionError;
 use rlp::DecoderError;
 use hexutil::ParseHexError;
 

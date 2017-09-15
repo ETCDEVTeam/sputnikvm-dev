@@ -10,8 +10,8 @@ repository = "https://github.com/ethereumproject/etestrpc"
 name = "svmdev"
 
 [dependencies]
-sputnikvm = "0.6"
-sputnikvm-stateful = "0.6"
+sputnikvm = "0.7"
+sputnikvm-stateful = "0.7"
 clap = "2.26"
 secp256k1-plus = "0.5"
 rand = "0.3.1"
