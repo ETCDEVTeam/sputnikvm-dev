@@ -112,50 +112,50 @@ pub struct RPCTransaction {
 
 build_rpc_trait! {
     pub trait EthereumRPC {
-		#[rpc(name = "web3_clientVersion")]
-		fn client_version(&self) -> Result<String, Error>;
-		#[rpc(name = "web3_sha3")]
-		fn sha3(&self, Bytes) -> Result<Hex<H256>, Error>;
+        #[rpc(name = "web3_clientVersion")]
+        fn client_version(&self) -> Result<String, Error>;
+        #[rpc(name = "web3_sha3")]
+        fn sha3(&self, Bytes) -> Result<Hex<H256>, Error>;
 
-		#[rpc(name = "net_version")]
-		fn network_id(&self) -> Result<String, Error>;
+        #[rpc(name = "net_version")]
+        fn network_id(&self) -> Result<String, Error>;
         #[rpc(name = "net_listening")]
-		fn is_listening(&self) -> Result<bool, Error>;
-		#[rpc(name = "net_peerCount")]
-		fn peer_count(&self) -> Result<Hex<usize>, Error>;
+        fn is_listening(&self) -> Result<bool, Error>;
+        #[rpc(name = "net_peerCount")]
+        fn peer_count(&self) -> Result<Hex<usize>, Error>;
 
-		#[rpc(name = "eth_protocolVersion")]
-		fn protocol_version(&self) -> Result<String, Error>;
-		#[rpc(name = "eth_syncing")]
-		fn is_syncing(&self) -> Result<bool, Error>;
+        #[rpc(name = "eth_protocolVersion")]
+        fn protocol_version(&self) -> Result<String, Error>;
+        #[rpc(name = "eth_syncing")]
+        fn is_syncing(&self) -> Result<bool, Error>;
         #[rpc(name = "eth_coinbase")]
-		fn coinbase(&self) -> Result<Hex<Address>, Error>;
+        fn coinbase(&self) -> Result<Hex<Address>, Error>;
         #[rpc(name = "eth_mining")]
-		fn is_mining(&self) -> Result<bool, Error>;
-		#[rpc(name = "eth_hashrate")]
-		fn hashrate(&self) -> Result<String, Error>;
-		#[rpc(name = "eth_gasPrice")]
-		fn gas_price(&self) -> Result<Hex<Gas>, Error>;
-		#[rpc(name = "eth_accounts")]
-		fn accounts(&self) -> Result<Vec<Hex<Address>>, Error>;
-		#[rpc(name = "eth_blockNumber")]
-		fn block_number(&self) -> Result<Hex<usize>, Error>;
-		#[rpc(name = "eth_getBalance")]
-		fn balance(&self, Hex<Address>, Trailing<String>) -> Result<Hex<U256>, Error>;
-		#[rpc(name = "eth_getStorageAt")]
-		fn storage_at(&self, Hex<Address>, Hex<U256>, Trailing<String>) -> Result<Hex<M256>, Error>;
+        fn is_mining(&self) -> Result<bool, Error>;
+        #[rpc(name = "eth_hashrate")]
+        fn hashrate(&self) -> Result<String, Error>;
+        #[rpc(name = "eth_gasPrice")]
+        fn gas_price(&self) -> Result<Hex<Gas>, Error>;
+        #[rpc(name = "eth_accounts")]
+        fn accounts(&self) -> Result<Vec<Hex<Address>>, Error>;
+        #[rpc(name = "eth_blockNumber")]
+        fn block_number(&self) -> Result<Hex<usize>, Error>;
+        #[rpc(name = "eth_getBalance")]
+        fn balance(&self, Hex<Address>, Trailing<String>) -> Result<Hex<U256>, Error>;
+        #[rpc(name = "eth_getStorageAt")]
+        fn storage_at(&self, Hex<Address>, Hex<U256>, Trailing<String>) -> Result<Hex<M256>, Error>;
         #[rpc(name = "eth_getTransactionCount")]
-		fn transaction_count(&self, Hex<Address>, Trailing<String>) -> Result<Hex<usize>, Error>;
+        fn transaction_count(&self, Hex<Address>, Trailing<String>) -> Result<Hex<usize>, Error>;
         #[rpc(name = "eth_getBlockTransactionCountByHash")]
-		fn block_transaction_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
+        fn block_transaction_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getBlockTransactionCountByNumber")]
-		fn block_transaction_count_by_number(&self, String) -> Result<Option<Hex<usize>>, Error>;
+        fn block_transaction_count_by_number(&self, String) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getUncleCountByBlockHash")]
-		fn block_uncles_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
+        fn block_uncles_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getUncleCountByBlockNumber")]
-		fn block_uncles_count_by_number(&self, String) -> Result<Option<Hex<usize>>, Error>;
-		#[rpc(name = "eth_getCode")]
-		fn code(&self, Hex<Address>, Trailing<String>) -> Result<Bytes, Error>;
+        fn block_uncles_count_by_number(&self, String) -> Result<Option<Hex<usize>>, Error>;
+        #[rpc(name = "eth_getCode")]
+        fn code(&self, Hex<Address>, Trailing<String>) -> Result<Bytes, Error>;
         #[rpc(name = "eth_sign")]
         fn sign(&self, Hex<Address>, Bytes) -> Result<Bytes, Error>;
         #[rpc(name = "eth_sendTransaction")]
@@ -206,13 +206,23 @@ build_rpc_trait! {
     }
 }
 
+build_rpc_trait! {
+    pub trait DebugRPC {
+        #[rpc(name = "debug_getBlockRlp")]
+        fn block_rlp(&self, usize) -> Result<Bytes, Error>;
+    }
+}
+
 pub fn rpc_loop<P: 'static + Patch + Send>(
     state: Arc<Mutex<MinerState>>, addr: &SocketAddr, channel: Sender<bool>
 ) {
-    let rpc = serves::MinerEthereumRPC::<P>::new(state, channel);
+    let rpc = serves::MinerEthereumRPC::<P>::new(state.clone(), channel);
+    let debug = serves::MinerDebugRPC::<P>::new(state);
+
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());
+    io.extend_with(debug.to_delegate());
 
     let server = ServerBuilder::new(io)
         .cors(DomainsValidation::AllowOnly(vec![

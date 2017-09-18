@@ -1,4 +1,4 @@
-use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter};
+use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter};
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
@@ -26,13 +26,28 @@ pub struct MinerEthereumRPC<P: Patch + Send> {
     _patch: PhantomData<P>,
 }
 
+pub struct MinerDebugRPC<P: Patch + Send> {
+    state: Arc<Mutex<MinerState>>,
+    _patch: PhantomData<P>,
+}
+
 unsafe impl<P: Patch + Send> Sync for MinerEthereumRPC<P> { }
+unsafe impl<P: Patch + Send> Sync for MinerDebugRPC<P> { }
 
 impl<P: Patch + Send> MinerEthereumRPC<P> {
     pub fn new(state: Arc<Mutex<MinerState>>, channel: Sender<bool>) -> Self {
         MinerEthereumRPC {
             filter: Mutex::new(FilterManager::new(state.clone())),
             channel,
+            state,
+            _patch: PhantomData,
+        }
+    }
+}
+
+impl<P: Patch + Send> MinerDebugRPC<P> {
+    pub fn new(state: Arc<Mutex<MinerState>>) -> Self {
+        MinerDebugRPC {
             state,
             _patch: PhantomData,
         }
@@ -538,5 +553,18 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
             Ok(filter) => Ok(get_logs(&state, filter)?),
             Err(_) => Ok(Vec::new()),
         }
+    }
+}
+
+impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
+    fn block_rlp(&self, number: usize) -> Result<Bytes, Error> {
+        let state = self.state.lock().unwrap();
+
+        if number > state.block_height() {
+            return Err(Error::NotFound);
+        }
+
+        let block = state.get_block_by_number(number);
+        Ok(Bytes(rlp::encode(&block).to_vec()))
     }
 }
