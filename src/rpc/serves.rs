@@ -1,4 +1,4 @@
-use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter};
+use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter};
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
@@ -566,5 +566,9 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
 
         let block = state.get_block_by_number(number);
         Ok(Bytes(rlp::encode(&block).to_vec()))
+    }
+
+    fn trace_transaction(&self, hash: Hex<H256>) -> Result<RPCTrace, Error> {
+        unimplemented!()
     }
 }
