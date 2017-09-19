@@ -167,7 +167,7 @@ impl MinerState {
         &mut self.stateful
     }
 
-    pub fn stateful(&self) -> &MemoryStateful {
+    pub fn stateful(&self) -> &MemoryStateful<'static> {
         &self.stateful
     }
 

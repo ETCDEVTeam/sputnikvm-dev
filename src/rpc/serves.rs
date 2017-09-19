@@ -11,10 +11,12 @@ use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction};
 use blockchain::chain::HeaderHash;
-use sputnikvm::{AccountChange, ValidTransaction, SeqTransactionVM, VM, HeaderParams, Patch};
+use sputnikvm::{AccountChange, ValidTransaction, SeqTransactionVM, VM, VMStatus, Memory, MachineStatus, HeaderParams, Patch};
+use sputnikvm_stateful::MemoryStateful;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 use jsonrpc_macros::Trailing;
@@ -569,6 +571,100 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
     }
 
     fn trace_transaction(&self, hash: Hex<H256>) -> Result<RPCTrace, Error> {
-        unimplemented!()
+        let state = self.state.lock().unwrap();
+
+        let transaction = state.get_transaction_by_hash(hash.0)?;
+        let block = state.get_block_by_hash(state.get_transaction_block_hash_by_hash(hash.0)?)?;
+        let last_hashes = state.get_last_256_block_hashes();
+
+        let mut stateful: MemoryStateful<'static> = state.stateful().clone();
+        for other_transaction in &block.transactions {
+            if other_transaction != &transaction {
+                let valid = stateful.to_valid::<P>(transaction.clone())?;
+                let _: SeqTransactionVM<P> =
+                    stateful.execute::<_, P>(valid, HeaderParams::from(&block.header), &last_hashes);
+            } else {
+                break;
+            }
+        }
+
+        let valid = stateful.to_valid::<P>(transaction)?;
+        let mut vm = SeqTransactionVM::<P>::new(valid, HeaderParams::from(&block.header));
+        let mut steps = Vec::new();
+        let mut last_gas = Gas::zero();
+
+        loop {
+            match vm.status() {
+                VMStatus::ExitedOk | VMStatus::ExitedErr(_) => break,
+                VMStatus::Running => {
+                    stateful.step(&mut vm, block.header.number, &last_hashes);
+                    let gas = vm.real_used_gas();
+                    let gas_cost = gas - last_gas;
+
+                    last_gas = gas;
+
+                    if let Some(machine) = vm.current_machine() {
+                        let depth = machine.state().depth;
+                        let error = match machine.status() {
+                            MachineStatus::ExitedErr(err) => format!("{:?}", err),
+                            _ => "".to_string(),
+                        };
+                        let memory = {
+                            let mut index = Gas::zero();
+                            // TODO: check correctness of using memory_cost as len.
+                            let mut len = machine.state().memory_cost;
+                            let mut ret = Vec::new();
+
+                            while index < len {
+                                ret.push(Hex(machine.state().memory.read(index.into())));
+                            }
+                            ret
+                        };
+                        let pc = machine.pc().position();
+                        let op = machine.pc().code()[pc];
+                        let stack = {
+                            let mut ret = Vec::new();
+
+                            for i in 0..machine.state().stack.len() {
+                                ret.push(Hex(machine.state().stack.peek(i).unwrap()));
+                            }
+                            ret
+                        };
+                        let storage = {
+                            let storage = machine.state().account_state.storage(
+                                machine.state().context.address);
+
+                            let mut ret = HashMap::new();
+                            if let Ok(storage) = storage {
+                                let storage: HashMap<U256, M256> = storage.clone().into();
+                                for (key, value) in storage {
+                                    ret.insert(Hex(key), Hex(value));
+                                }
+                            }
+                            ret
+                        };
+
+                        steps.push(RPCStep {
+                            depth,
+                            error,
+                            gas: Hex(gas),
+                            gas_cost: Hex(gas_cost),
+                            memory,
+                            op, pc,
+                            stack,
+                            storage
+                        });
+                    }
+                },
+            }
+        }
+
+        let gas = Hex(vm.real_used_gas());
+        let return_value = Bytes(vm.out().into());
+
+        Ok(RPCTrace {
+            gas, return_value,
+            struct_logs: steps,
+        })
     }
 }

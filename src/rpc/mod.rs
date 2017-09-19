@@ -115,7 +115,7 @@ pub struct RPCTransaction {
 #[serde(rename_all = "camelCase")]
 pub struct RPCTrace {
     pub gas: Hex<Gas>,
-    pub returnValue: Bytes,
+    pub return_value: Bytes,
     pub struct_logs: Vec<RPCStep>,
 }
 
@@ -125,10 +125,10 @@ pub struct RPCStep {
     pub error: String,
     pub gas: Hex<Gas>,
     pub gas_cost: Hex<Gas>,
-    pub memory: Bytes,
+    pub memory: Vec<Hex<M256>>,
     pub op: u8,
     pub pc: usize,
-    pub stack: Vec<Hex<U256>>,
+    pub stack: Vec<Hex<M256>>,
     pub storage: HashMap<Hex<U256>, Hex<M256>>,
 }
 
