@@ -9,6 +9,7 @@ use bigint::{U256, H256, M256, H2048, H64, Address, Gas};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::collections::HashMap;
 use sputnikvm::Patch;
 
 mod serves;
@@ -108,6 +109,27 @@ pub struct RPCTransaction {
     pub block_hash: Option<Hex<H256>>,
     pub block_number: Option<Hex<U256>>,
     pub transaction_index: Option<Hex<usize>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCTrace {
+    pub gas: Hex<Gas>,
+    pub return_value: Bytes,
+    pub struct_logs: Vec<RPCStep>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RPCStep {
+    pub depth: usize,
+    pub error: String,
+    pub gas: Hex<Gas>,
+    pub gas_cost: Hex<Gas>,
+    pub memory: Vec<Hex<M256>>,
+    pub op: u8,
+    pub pc: usize,
+    pub stack: Vec<Hex<M256>>,
+    pub storage: HashMap<Hex<U256>, Hex<M256>>,
 }
 
 build_rpc_trait! {
@@ -210,6 +232,8 @@ build_rpc_trait! {
     pub trait DebugRPC {
         #[rpc(name = "debug_getBlockRlp")]
         fn block_rlp(&self, usize) -> Result<Bytes, Error>;
+        #[rpc(name = "debug_traceTransaction")]
+        fn trace_transaction(&self, Hex<H256>) -> Result<RPCTrace, Error>;
     }
 }
 

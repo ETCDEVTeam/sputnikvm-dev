@@ -25,11 +25,11 @@ pub struct MinerState {
     receipt_database: HashMap<H256, Receipt>,
 
     accounts: Vec<SecretKey>,
-    stateful: MemoryStateful,
+    stateful: MemoryStateful<'static>,
 }
 
 impl MinerState {
-    pub fn new(genesis: Block, stateful: MemoryStateful) -> Self {
+    pub fn new(genesis: Block, stateful: MemoryStateful<'static>) -> Self {
         let mut block_database = HashMap::new();
         let mut transaction_block_hashes = HashMap::new();
         let mut total_header_database = HashMap::new();
@@ -163,11 +163,11 @@ impl MinerState {
         self.get_block_by_number(self.block_height())
     }
 
-    pub fn stateful_mut(&mut self) -> &mut MemoryStateful {
+    pub fn stateful_mut(&mut self) -> &mut MemoryStateful<'static> {
         &mut self.stateful
     }
 
-    pub fn stateful(&self) -> &MemoryStateful {
+    pub fn stateful(&self) -> &MemoryStateful<'static> {
         &self.stateful
     }
 

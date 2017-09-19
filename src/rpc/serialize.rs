@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use hexutil::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq)]
 pub struct Hex<T>(pub T);
 #[derive(Debug, Clone)]
 pub struct Bytes(pub Vec<u8>);

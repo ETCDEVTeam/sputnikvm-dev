@@ -85,8 +85,12 @@ fn current_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
+lazy_static! {
+    static ref DATABASE: MemoryDatabase = MemoryDatabase::default();
+}
+
 pub fn make_state<P: Patch>(genesis_accounts: Vec<(SecretKey, U256)>) -> MinerState {
-    let mut stateful = MemoryStateful::default();
+    let mut stateful = MemoryStateful::empty(&DATABASE);
     let mut genesis = Block {
         header: Header {
             parent_hash: H256::default(),
