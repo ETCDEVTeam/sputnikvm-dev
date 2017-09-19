@@ -610,13 +610,9 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
                             _ => "".to_string(),
                         };
                         let memory = {
-                            let mut index = Gas::zero();
-                            // TODO: check correctness of using memory_cost as len.
-                            let mut len = machine.state().memory_cost;
                             let mut ret = Vec::new();
-
-                            while index < len {
-                                ret.push(Hex(machine.state().memory.read(index.into())));
+                            for i in 0..machine.state().memory.len() {
+                                ret.push(Hex(machine.state().memory.read(i.into())));
                             }
                             ret
                         };
