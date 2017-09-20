@@ -611,8 +611,12 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
                         };
                         let memory = {
                             let mut ret = Vec::new();
-                            for i in 0..machine.state().memory.len() {
-                                ret.push(Hex(machine.state().memory.read(i.into())));
+                            for i in 0..(if machine.state().memory.len() % 32 == 0 {
+                                machine.state().memory.len() / 32
+                            } else {
+                                machine.state().memory.len() / 32 + 1
+                            }) {
+                                ret.push(Hex(machine.state().memory.read(i.into() * 32)));
                             }
                             ret
                         };
