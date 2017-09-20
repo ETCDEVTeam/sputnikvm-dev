@@ -616,7 +616,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
                             } else {
                                 machine.state().memory.len() / 32 + 1
                             }) {
-                                ret.push(Hex(machine.state().memory.read(i.into() * 32)));
+                                ret.push(Hex(machine.state().memory.read(U256::from(i) *
+                                                                         U256::from(32))));
                             }
                             ret
                         };
