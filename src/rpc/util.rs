@@ -124,7 +124,7 @@ pub fn to_rpc_transaction(transaction: Transaction, block: Option<&Block>) -> RP
     let hash = H256::from(Keccak256::digest(&rlp::encode(&transaction).to_vec()).as_slice());
 
     RPCTransaction {
-        from: Hex(transaction.caller().unwrap()),
+        from: Some(Hex(transaction.caller().unwrap())),
         to: match transaction.action {
             TransactionAction::Call(address) => Some(Hex(address)),
             TransactionAction::Create => None,
@@ -201,7 +201,10 @@ pub fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: 
 }
 
 pub fn to_signed_transaction(state: &MinerState, transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<Transaction, Error> {
-    let address = transaction.from.0;
+    let address = match transaction.from {
+        Some(val) => val.0,
+        None => Address::default(),
+    };
     let secret_key = {
         let mut secret_key = None;
         for key in state.accounts() {
@@ -254,7 +257,10 @@ pub fn to_signed_transaction(state: &MinerState, transaction: RPCTransaction, st
 }
 
 pub fn to_valid_transaction(state: &MinerState, transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<ValidTransaction, Error> {
-    let address = transaction.from.0;
+    let address = match transaction.from {
+        Some(val) => val.0,
+        None => Address::default(),
+    };
 
     let block = state.get_block_by_number(state.block_height());
     let trie = stateful.state_of(block.header.state_root);

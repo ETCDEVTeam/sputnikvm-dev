@@ -97,7 +97,7 @@ pub struct RPCBlock {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCTransaction {
-    pub from: Hex<Address>,
+    pub from: Option<Hex<Address>>,
     pub to: Option<Hex<Address>>,
     pub gas: Option<Hex<Gas>>,
     pub gas_price: Option<Hex<Gas>>,
