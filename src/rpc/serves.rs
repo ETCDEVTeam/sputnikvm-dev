@@ -596,6 +596,7 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         loop {
             match vm.status() {
                 VMStatus::ExitedOk | VMStatus::ExitedErr(_) => break,
+                VMStatus::ExitedNotSupported(_) => panic!(),
                 VMStatus::Running => {
                     stateful.step(&mut vm, block.header.number, &last_hashes);
                     let gas = vm.real_used_gas();

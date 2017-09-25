@@ -7,7 +7,7 @@ use miner::MinerState;
 use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
-use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction};
+use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction, GlobalSignaturePatch};
 use blockchain::chain::HeaderHash;
 use sputnikvm::{ValidTransaction, VM};
 use sputnikvm_stateful::MemoryStateful;
@@ -249,9 +249,8 @@ pub fn to_signed_transaction(state: &MinerState, transaction: RPCTransaction, st
             Some(val) => val.0,
             None => Vec::new(),
         },
-        network_id: None,
     };
-    let transaction = unsigned.sign(&secret_key);
+    let transaction = unsigned.sign::<GlobalSignaturePatch>(&secret_key);
 
     Ok(transaction)
 }
