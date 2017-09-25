@@ -670,4 +670,34 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
             struct_logs: steps
         })
     }
+
+    fn trace_block_from_file(&self, path: String) -> Result<RPCBlockTrace, Error> {
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut file = File::open(path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+
+        let state = self.state.lock().unwrap();
+        let block: Block = UntrustedRlp::new(&buffer).as_val()?;
+        let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
+
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut steps = Vec::new();
+        for transaction in block.transactions.clone() {
+            let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
+                                                                &block, &last_hashes)?;
+            steps.append(&mut local_steps);
+            let mut accounts = Vec::new();
+            for account in vm.accounts() {
+                accounts.push(account.clone());
+            }
+            stateful.transit(&accounts);
+        }
+
+        Ok(RPCBlockTrace {
+            struct_logs: steps
+        })
+    }
 }
