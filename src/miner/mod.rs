@@ -1,5 +1,5 @@
 use rlp;
-use block::{Receipt, Block, UnsignedTransaction, Transaction, TransactionAction, Log, FromKey, Header, Account};
+use block::{Receipt, Block, UnsignedTransaction, Transaction, TransactionAction, Log, FromKey, Header, Account, ommers_hash, transactions_root, receipts_root, RlpHash};
 use trie::{MemoryDatabase, Database, MemoryDatabaseGuard, Trie};
 use bigint::{H256, M256, U256, H64, B256, Gas, Address};
 use bloom::LogsBloom;
@@ -33,21 +33,11 @@ fn next<'a>(
 
     debug_assert!(transactions.len() == receipts.len());
 
-    let mut transactions_trie = Trie::empty(HashMap::new());
-    let mut receipts_trie = Trie::empty(HashMap::new());
     let mut logs_bloom = LogsBloom::new();
     let mut gas_used = Gas::zero();
 
     for i in 0..transactions.len() {
-        let transaction_rlp = rlp::encode(&transactions[i]).to_vec();
-        let transaction_hash = H256::from(Keccak256::digest(&transaction_rlp).as_slice());
-        let receipt_rlp = rlp::encode(&receipts[i]).to_vec();
-        let receipt_hash = H256::from(Keccak256::digest(&receipt_rlp).as_slice());
-
-        transactions_trie.insert(rlp::encode(&i).to_vec(), transaction_rlp.clone());
-        receipts_trie.insert(rlp::encode(&i).to_vec(), receipt_rlp.clone());
-
-        state.insert_receipt(transaction_hash, receipts[i].clone());
+        state.insert_receipt(transactions[i].rlp_hash(), receipts[i].clone());
 
         logs_bloom = logs_bloom | receipts[i].logs_bloom.clone();
         gas_used = gas_used + receipts[i].used_gas.clone();
@@ -55,13 +45,11 @@ fn next<'a>(
 
     let header = Header {
         parent_hash: current_block.header.header_hash(),
-        // TODO: use the known-good result from etclient
-        ommers_hash: MemoryDatabase::default().create_empty().root(),
+        ommers_hash: ommers_hash(&[]),
         beneficiary,
         state_root: state_root,
-        // TODO: use the known-good result from etclient
-        transactions_root: transactions_trie.root(),
-        receipts_root: receipts_trie.root(),
+        transactions_root: transactions_root(transactions),
+        receipts_root: receipts_root(receipts),
         logs_bloom,
         gas_limit,
         gas_used,
