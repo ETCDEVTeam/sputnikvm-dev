@@ -120,6 +120,12 @@ pub struct RPCTrace {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCBlockTrace {
+    pub struct_logs: Vec<RPCStep>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RPCStep {
     pub depth: usize,
     pub error: String,
@@ -234,6 +240,8 @@ build_rpc_trait! {
         fn block_rlp(&self, usize) -> Result<Bytes, Error>;
         #[rpc(name = "debug_traceTransaction")]
         fn trace_transaction(&self, Hex<H256>) -> Result<RPCTrace, Error>;
+        #[rpc(name = "debug_traceBlock")]
+        fn trace_block(&self, Bytes) -> Result<RPCBlockTrace, Error>;
     }
 }
 

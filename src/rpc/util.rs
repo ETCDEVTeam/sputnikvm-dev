@@ -1,4 +1,4 @@
-use super::{EthereumRPC, Either, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter};
+use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter};
 use super::filter::*;
 use super::serialize::*;
 use error::Error;
@@ -9,9 +9,10 @@ use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction, GlobalSignaturePatch};
 use blockchain::chain::HeaderHash;
-use sputnikvm::{ValidTransaction, VM};
+use sputnikvm::{ValidTransaction, VM, VMStatus, MachineStatus, HeaderParams, SeqTransactionVM, Patch, Memory};
 use sputnikvm_stateful::MemoryStateful;
 use std::str::FromStr;
+use std::collections::HashMap;
 
 use jsonrpc_macros::Trailing;
 
@@ -338,4 +339,83 @@ pub fn from_log_filter(state: &MinerState, filter: RPCLogFilter) -> Result<LogFi
             None => vec![TopicFilter::All, TopicFilter::All, TopicFilter::All, TopicFilter::All],
         },
     })
+}
+
+pub fn replay_transaction<P: Patch>(
+    stateful: &MemoryStateful<'static>, transaction: Transaction, block: &Block, last_hashes: &[H256]
+) -> Result<(Vec<RPCStep>, SeqTransactionVM<P>), Error> {
+    let valid = stateful.to_valid::<P>(transaction)?;
+    let mut vm = SeqTransactionVM::<P>::new(valid, HeaderParams::from(&block.header));
+    let mut steps = Vec::new();
+    let mut last_gas = Gas::zero();
+
+    loop {
+        match vm.status() {
+            VMStatus::ExitedOk | VMStatus::ExitedErr(_) => break,
+            VMStatus::ExitedNotSupported(_) => panic!(),
+            VMStatus::Running => {
+                stateful.step(&mut vm, block.header.number, &last_hashes);
+                let gas = vm.real_used_gas();
+                let gas_cost = gas - last_gas;
+
+                last_gas = gas;
+
+                if let Some(machine) = vm.current_machine() {
+                    let depth = machine.state().depth;
+                    let error = match machine.status() {
+                        MachineStatus::ExitedErr(err) => format!("{:?}", err),
+                        _ => "".to_string(),
+                    };
+                    let memory = {
+                        let mut ret = Vec::new();
+                        for i in 0..(if machine.state().memory.len() % 32 == 0 {
+                            machine.state().memory.len() / 32
+                        } else {
+                            machine.state().memory.len() / 32 + 1
+                        }) {
+                            ret.push(Hex(machine.state().memory.read(U256::from(i) *
+                                                                     U256::from(32))));
+                        }
+                        ret
+                    };
+                    let pc = machine.pc().position();
+                    let op = machine.pc().code()[pc];
+                    let stack = {
+                        let mut ret = Vec::new();
+
+                        for i in 0..machine.state().stack.len() {
+                            ret.push(Hex(machine.state().stack.peek(i).unwrap()));
+                        }
+                        ret
+                    };
+                    let storage = {
+                        let storage = machine.state().account_state.storage(
+                            machine.state().context.address);
+
+                        let mut ret = HashMap::new();
+                        if let Ok(storage) = storage {
+                            let storage: HashMap<U256, M256> = storage.clone().into();
+                            for (key, value) in storage {
+                                ret.insert(Hex(key), Hex(value));
+                            }
+                        }
+                        ret
+                    };
+
+                    steps.push(RPCStep {
+                        depth,
+                        error,
+                        gas: Hex(gas),
+                        gas_cost: Hex(gas_cost),
+                        memory,
+                        op, pc,
+                        stack,
+                        storage
+                    });
+                }
+            },
+        }
+    }
+
+    Ok((steps, vm))
 }
