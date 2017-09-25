@@ -25,6 +25,7 @@ pub struct MinerState {
     receipt_database: HashMap<H256, Receipt>,
 
     accounts: Vec<SecretKey>,
+    database: &'static MemoryDatabase,
     stateful: MemoryStateful<'static>,
 }
 
@@ -47,6 +48,8 @@ impl MinerState {
         let current_block = hash;
 
         Self {
+            database: stateful.database(),
+
             block_database, transaction_block_hashes, total_header_database,
             block_hashes, current_block, stateful,
 
@@ -145,8 +148,8 @@ impl MinerState {
         self.total_header_database.get(&self.block_hashes[index]).map(|v| v.clone()).unwrap()
     }
 
-    pub fn get_last_256_block_hashes(&self) -> Vec<H256> {
-        let mut hashes = self.block_hashes.clone();
+    pub fn get_last_256_block_hashes_by_number(&self, number: usize) -> Vec<H256> {
+        let mut hashes: Vec<H256> = (&self.block_hashes[0..number]).into();
         let mut ret = Vec::new();
 
         for _ in 0..256 {
@@ -159,6 +162,10 @@ impl MinerState {
         ret
     }
 
+    pub fn get_last_256_block_hashes(&self) -> Vec<H256> {
+        self.get_last_256_block_hashes_by_number(self.current_block().header.number.as_usize())
+    }
+
     pub fn current_block(&self) -> Block {
         self.get_block_by_number(self.block_height())
     }
@@ -169,6 +176,10 @@ impl MinerState {
 
     pub fn stateful(&self) -> &MemoryStateful<'static> {
         &self.stateful
+    }
+
+    pub fn stateful_at(&self, root: H256) -> MemoryStateful<'static> {
+        MemoryStateful::new(self.database, root)
     }
 
     pub fn accounts(&self) -> Vec<SecretKey> {

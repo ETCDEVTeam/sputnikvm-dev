@@ -1,4 +1,4 @@
-use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter};
+use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace};
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
@@ -575,9 +575,9 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
 
         let transaction = state.get_transaction_by_hash(hash.0)?;
         let block = state.get_block_by_hash(state.get_transaction_block_hash_by_hash(hash.0)?)?;
-        let last_hashes = state.get_last_256_block_hashes();
+        let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful().clone();
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
         for other_transaction in &block.transactions {
             if other_transaction != &transaction {
                 let valid = stateful.to_valid::<P>(transaction.clone())?;
@@ -588,77 +588,7 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
             }
         }
 
-        let valid = stateful.to_valid::<P>(transaction)?;
-        let mut vm = SeqTransactionVM::<P>::new(valid, HeaderParams::from(&block.header));
-        let mut steps = Vec::new();
-        let mut last_gas = Gas::zero();
-
-        loop {
-            match vm.status() {
-                VMStatus::ExitedOk | VMStatus::ExitedErr(_) => break,
-                VMStatus::Running => {
-                    stateful.step(&mut vm, block.header.number, &last_hashes);
-                    let gas = vm.real_used_gas();
-                    let gas_cost = gas - last_gas;
-
-                    last_gas = gas;
-
-                    if let Some(machine) = vm.current_machine() {
-                        let depth = machine.state().depth;
-                        let error = match machine.status() {
-                            MachineStatus::ExitedErr(err) => format!("{:?}", err),
-                            _ => "".to_string(),
-                        };
-                        let memory = {
-                            let mut ret = Vec::new();
-                            for i in 0..(if machine.state().memory.len() % 32 == 0 {
-                                machine.state().memory.len() / 32
-                            } else {
-                                machine.state().memory.len() / 32 + 1
-                            }) {
-                                ret.push(Hex(machine.state().memory.read(U256::from(i) *
-                                                                         U256::from(32))));
-                            }
-                            ret
-                        };
-                        let pc = machine.pc().position();
-                        let op = machine.pc().code()[pc];
-                        let stack = {
-                            let mut ret = Vec::new();
-
-                            for i in 0..machine.state().stack.len() {
-                                ret.push(Hex(machine.state().stack.peek(i).unwrap()));
-                            }
-                            ret
-                        };
-                        let storage = {
-                            let storage = machine.state().account_state.storage(
-                                machine.state().context.address);
-
-                            let mut ret = HashMap::new();
-                            if let Ok(storage) = storage {
-                                let storage: HashMap<U256, M256> = storage.clone().into();
-                                for (key, value) in storage {
-                                    ret.insert(Hex(key), Hex(value));
-                                }
-                            }
-                            ret
-                        };
-
-                        steps.push(RPCStep {
-                            depth,
-                            error,
-                            gas: Hex(gas),
-                            gas_cost: Hex(gas_cost),
-                            memory,
-                            op, pc,
-                            stack,
-                            storage
-                        });
-                    }
-                },
-            }
-        }
+        let (steps, vm) = replay_transaction::<P>(&stateful, transaction, &block, &last_hashes)?;
 
         let gas = Hex(vm.real_used_gas());
         let return_value = Bytes(vm.out().into());
@@ -666,6 +596,108 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         Ok(RPCTrace {
             gas, return_value,
             struct_logs: steps,
+        })
+    }
+
+    fn trace_block(&self, block_rlp: Bytes) -> Result<RPCBlockTrace, Error> {
+        let state = self.state.lock().unwrap();
+        let block: Block = UntrustedRlp::new(&block_rlp.0).as_val()?;
+        let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
+
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut steps = Vec::new();
+        for transaction in block.transactions.clone() {
+            let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
+                                                                &block, &last_hashes)?;
+            steps.append(&mut local_steps);
+            let mut accounts = Vec::new();
+            for account in vm.accounts() {
+                accounts.push(account.clone());
+            }
+            stateful.transit(&accounts);
+        }
+
+        Ok(RPCBlockTrace {
+            struct_logs: steps
+        })
+    }
+
+    fn trace_block_by_number(&self, number: usize) -> Result<RPCBlockTrace, Error> {
+        let state = self.state.lock().unwrap();
+        if number > state.block_height() {
+            return Err(Error::NotFound);
+        }
+        let block: Block = state.get_block_by_number(number);
+        let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
+
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut steps = Vec::new();
+        for transaction in block.transactions.clone() {
+            let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
+                                                                &block, &last_hashes)?;
+            steps.append(&mut local_steps);
+            let mut accounts = Vec::new();
+            for account in vm.accounts() {
+                accounts.push(account.clone());
+            }
+            stateful.transit(&accounts);
+        }
+
+        Ok(RPCBlockTrace {
+            struct_logs: steps
+        })
+    }
+
+    fn trace_block_by_hash(&self, hash: Hex<H256>) -> Result<RPCBlockTrace, Error> {
+        let state = self.state.lock().unwrap();
+        let block: Block = state.get_block_by_hash(hash.0)?;
+        let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
+
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut steps = Vec::new();
+        for transaction in block.transactions.clone() {
+            let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
+                                                                &block, &last_hashes)?;
+            steps.append(&mut local_steps);
+            let mut accounts = Vec::new();
+            for account in vm.accounts() {
+                accounts.push(account.clone());
+            }
+            stateful.transit(&accounts);
+        }
+
+        Ok(RPCBlockTrace {
+            struct_logs: steps
+        })
+    }
+
+    fn trace_block_from_file(&self, path: String) -> Result<RPCBlockTrace, Error> {
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut file = File::open(path).unwrap();
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).unwrap();
+
+        let state = self.state.lock().unwrap();
+        let block: Block = UntrustedRlp::new(&buffer).as_val()?;
+        let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
+
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut steps = Vec::new();
+        for transaction in block.transactions.clone() {
+            let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
+                                                                &block, &last_hashes)?;
+            steps.append(&mut local_steps);
+            let mut accounts = Vec::new();
+            for account in vm.accounts() {
+                accounts.push(account.clone());
+            }
+            stateful.transit(&accounts);
+        }
+
+        Ok(RPCBlockTrace {
+            struct_logs: steps
         })
     }
 }
