@@ -244,6 +244,8 @@ build_rpc_trait! {
         fn trace_block(&self, Bytes) -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockByNumber")]
         fn trace_block_by_number(&self, usize) -> Result<RPCBlockTrace, Error>;
+        #[rpc(name = "debug_traceBlockByHash")]
+        fn trace_block_by_hash(&self, Hex<H256>) -> Result<RPCBlockTrace, Error>;
     }
 }
 
