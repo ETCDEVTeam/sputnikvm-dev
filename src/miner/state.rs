@@ -10,7 +10,7 @@ use secp256k1::key::SecretKey;
 use sputnikvm_stateful::{MemoryStateful};
 
 use std::sync::{Mutex, MutexGuard};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct MinerState {
     all_pending_transaction_hashes: Vec<H256>,
@@ -23,6 +23,7 @@ pub struct MinerState {
     transaction_database: HashMap<H256, Transaction>,
     block_database: HashMap<H256, Block>,
     receipt_database: HashMap<H256, Receipt>,
+    address_database: HashSet<Address>,
 
     accounts: Vec<SecretKey>,
     database: &'static MemoryDatabase,
@@ -57,6 +58,7 @@ impl MinerState {
             pending_transaction_hashes: Vec::new(),
             transaction_database: HashMap::new(),
             receipt_database: HashMap::new(),
+            address_database: HashSet::new(),
 
             accounts: Vec::new(),
         }
@@ -110,6 +112,14 @@ impl MinerState {
         self.current_block = hash;
 
         hash
+    }
+
+    pub fn append_address(&mut self, address: Address) {
+        self.address_database.insert(address);
+    }
+
+    pub fn dump_addresses(&self) -> HashSet<Address> {
+        self.address_database.clone()
     }
 
     pub fn insert_receipt(&mut self, transaction_hash: H256, receipt: Receipt) {

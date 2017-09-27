@@ -127,6 +127,7 @@ pub fn make_state<P: Patch>(genesis_accounts: Vec<(SecretKey, U256)>) -> MinerSt
         println!("private key: {}", to_hex(&secret_key[..]));
 
         state.append_account(secret_key);
+        state.append_address(address);
     }
 
     state
@@ -153,9 +154,17 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
 
     for transaction in transactions.clone() {
         let valid = state.stateful_mut().to_valid::<P>(transaction).unwrap();
-        let vm: SeqTransactionVM<P> = state.stateful_mut().execute(
-            valid, HeaderParams::from(&current_block.header),
-            &block_hashes);
+        let vm: SeqTransactionVM<P> = {
+            let vm = state.stateful_mut().call(valid, HeaderParams::from(&current_block.header),
+                               &block_hashes);
+            let mut accounts = Vec::new();
+            for account in vm.accounts() {
+                state.append_address(account.address());
+                accounts.push(account.clone());
+            }
+            state.stateful_mut().transit(&accounts);
+            vm
+        };
 
         let logs: Vec<Log> = vm.logs().into();
         let used_gas = vm.real_used_gas();
