@@ -7,10 +7,11 @@ use bigint::{H256, M256, U256, H64, B256, Gas, Address};
 use sha3::{Digest, Keccak256};
 use blockchain::chain::HeaderHash;
 use secp256k1::key::SecretKey;
+use sputnikvm::AccountChange;
 use sputnikvm_stateful::{MemoryStateful};
 
 use std::sync::{Mutex, MutexGuard};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct MinerState {
     all_pending_transaction_hashes: Vec<H256>,
@@ -23,6 +24,7 @@ pub struct MinerState {
     transaction_database: HashMap<H256, Transaction>,
     block_database: HashMap<H256, Block>,
     receipt_database: HashMap<H256, Receipt>,
+    fat_database: Vec<HashMap<Address, HashMap<U256, M256>>>,
 
     accounts: Vec<SecretKey>,
     database: &'static MemoryDatabase,
@@ -57,6 +59,7 @@ impl MinerState {
             pending_transaction_hashes: Vec::new(),
             transaction_database: HashMap::new(),
             receipt_database: HashMap::new(),
+            fat_database: vec![HashMap::new()],
 
             accounts: Vec::new(),
         }
@@ -110,6 +113,63 @@ impl MinerState {
         self.current_block = hash;
 
         hash
+    }
+
+    pub fn fat_transit(&mut self, number: usize, accounts: &[AccountChange]) {
+        while self.fat_database.len() < number {
+            let last = self.fat_database.last().unwrap().clone();
+            self.fat_database.push(last);
+        }
+
+        let database = &mut self.fat_database[number];
+        for account in accounts {
+            match account.clone() {
+                AccountChange::Full {
+                    address, changing_storage, ..
+                } => {
+                    let changing_storage: HashMap<U256, M256> = changing_storage.into();
+
+                    let fat_storage = database.entry(address).or_insert(HashMap::new());
+
+                    for (key, value) in changing_storage {
+                        if value == M256::zero() {
+                            fat_storage.remove(&key);
+                        } else {
+                            fat_storage.insert(key, value);
+                        }
+                    }
+                },
+                AccountChange::IncreaseBalance(address, _) => {
+                    database.entry(address).or_insert(HashMap::new());
+                },
+                AccountChange::DecreaseBalance(address, _) => {
+                    database.entry(address).or_insert(HashMap::new());
+                },
+                AccountChange::Create {
+                    address, storage, exists, ..
+                } => {
+                    if !exists {
+                        database.remove(&address);
+                    } else {
+                        let storage: HashMap<U256, M256> = storage.into();
+
+                        let fat_storage = database.entry(address).or_insert(HashMap::new());
+
+                        for (key, value) in storage {
+                            if value == M256::zero() {
+                                fat_storage.remove(&key);
+                            } else {
+                                fat_storage.insert(key, value);
+                            }
+                        }
+                    }
+                },
+            }
+        }
+    }
+
+    pub fn dump_accounts(&self, number: usize) -> HashMap<Address, HashMap<U256, M256>> {
+        self.fat_database[number].clone()
     }
 
     pub fn insert_receipt(&mut self, transaction_hash: H256, receipt: Receipt) {
