@@ -1,4 +1,4 @@
-use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace};
+use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace, RPCDump, RPCDumpAccount};
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
@@ -10,6 +10,7 @@ use rlp::{self, UntrustedRlp};
 use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction};
+use trie::{Database, DatabaseGuard, FixedSecureTrie};
 use blockchain::chain::HeaderHash;
 use sputnikvm::{AccountChange, ValidTransaction, SeqTransactionVM, VM, VMStatus, Memory, MachineStatus, HeaderParams, Patch};
 use sputnikvm_stateful::MemoryStateful;
@@ -698,6 +699,40 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
 
         Ok(RPCBlockTrace {
             struct_logs: steps
+        })
+    }
+
+    fn dump_block(&self, number: usize) -> Result<RPCDump, Error> {
+        let state = self.state.lock().unwrap();
+        let block: Block = state.get_block_by_number(number);
+
+        let mut accounts = HashMap::new();
+        let database = state.stateful().database();
+        let trie: FixedSecureTrie<_, Address, Account> = database.create_fixed_secure_trie(block.header.state_root);
+        let code_hashes = database.create_guard();
+
+        for (address, storage) in state.dump_accounts(number) {
+            let mut rpc_storage = HashMap::new();
+            for (key, value) in storage {
+                rpc_storage.insert(Hex(key), Hex(value));
+            }
+
+            let account = trie.get(&address).unwrap();
+            let code = code_hashes.get(account.code_hash).unwrap();
+
+            accounts.insert(Hex(address), RPCDumpAccount {
+                balance: Hex(account.balance),
+                code: Bytes(code),
+                code_hash: Hex(account.code_hash),
+                nonce: Hex(account.nonce),
+                root: Hex(account.storage_root),
+                storage: rpc_storage,
+            });
+        }
+
+        Ok(RPCDump {
+            accounts,
+            root: Hex(block.header.state_root)
         })
     }
 }

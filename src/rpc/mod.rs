@@ -126,6 +126,7 @@ pub struct RPCBlockTrace {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RPCStep {
     pub depth: usize,
     pub error: String,
@@ -135,6 +136,24 @@ pub struct RPCStep {
     pub op: u8,
     pub pc: usize,
     pub stack: Vec<Hex<M256>>,
+    pub storage: HashMap<Hex<U256>, Hex<M256>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCDump {
+    pub accounts: HashMap<Hex<Address>, RPCDumpAccount>,
+    pub root: Hex<H256>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCDumpAccount {
+    pub balance: Hex<U256>,
+    pub code: Bytes,
+    pub code_hash: Hex<H256>,
+    pub nonce: Hex<U256>,
+    pub root: Hex<H256>,
     pub storage: HashMap<Hex<U256>, Hex<M256>>,
 }
 
@@ -248,6 +267,8 @@ build_rpc_trait! {
         fn trace_block_by_hash(&self, Hex<H256>) -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockFromFile")]
         fn trace_block_from_file(&self, String) -> Result<RPCBlockTrace, Error>;
+        #[rpc(name = "debug_dumpBlock")]
+        fn dump_block(&self, usize) -> Result<RPCDump, Error>;
     }
 }
 

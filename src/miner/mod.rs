@@ -103,18 +103,28 @@ pub fn make_state<P: Patch>(genesis_accounts: Vec<(SecretKey, U256)>) -> MinerSt
         ommers: Vec::new(),
     };
 
+    let mut all_account_changes = Vec::new();
     for &(ref secret_key, balance) in &genesis_accounts {
         let address = Address::from_secret_key(secret_key).unwrap();
 
-        let vm: SeqTransactionVM<P> = stateful.execute(ValidTransaction {
-            caller: None,
-            gas_price: Gas::zero(),
-            gas_limit: Gas::from(100000usize),
-            action: TransactionAction::Call(address),
-            value: balance,
-            input: Vec::new(),
-            nonce: U256::zero(),
-        }, HeaderParams::from(&genesis.header), &[]);
+        let vm: SeqTransactionVM<P> = {
+            let vm = stateful.call(ValidTransaction {
+                caller: None,
+                gas_price: Gas::zero(),
+                gas_limit: Gas::from(100000usize),
+                action: TransactionAction::Call(address),
+                value: balance,
+                input: Vec::new(),
+                nonce: U256::zero(),
+            }, HeaderParams::from(&genesis.header), &[]);
+            let mut accounts = Vec::new();
+            for account in vm.accounts() {
+                accounts.push(account.clone());
+            }
+            stateful.transit(&accounts);
+            all_account_changes.push(accounts);
+            vm
+        };
     }
 
     genesis.header.state_root = stateful.root();
@@ -127,7 +137,9 @@ pub fn make_state<P: Patch>(genesis_accounts: Vec<(SecretKey, U256)>) -> MinerSt
         println!("private key: {}", to_hex(&secret_key[..]));
 
         state.append_account(secret_key);
-        state.append_address(address);
+        for accounts in &all_account_changes {
+            state.fat_transit(0, &accounts);
+        }
     }
 
     state
@@ -159,10 +171,10 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
                                &block_hashes);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
-                state.append_address(account.address());
                 accounts.push(account.clone());
             }
             state.stateful_mut().transit(&accounts);
+            state.fat_transit(current_block.header.number.as_usize(), &accounts);
             vm
         };
 
