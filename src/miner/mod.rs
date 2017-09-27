@@ -164,6 +164,8 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
 
     let mut receipts = Vec::new();
 
+    state.fat_transit(current_block.header.number.as_usize(), &[]);
+
     for transaction in transactions.clone() {
         let valid = state.stateful_mut().to_valid::<P>(transaction).unwrap();
         let vm: SeqTransactionVM<P> = {
