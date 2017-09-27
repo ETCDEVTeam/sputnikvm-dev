@@ -192,7 +192,7 @@ build_rpc_trait! {
         #[rpc(name = "eth_getStorageAt")]
         fn storage_at(&self, Hex<Address>, Hex<U256>, Trailing<String>) -> Result<Hex<M256>, Error>;
         #[rpc(name = "eth_getTransactionCount")]
-        fn transaction_count(&self, Hex<Address>, Trailing<String>) -> Result<Hex<usize>, Error>;
+        fn transaction_count(&self, Hex<Address>, Trailing<String>) -> Result<Hex<U256>, Error>;
         #[rpc(name = "eth_getBlockTransactionCountByHash")]
         fn block_transaction_count_by_hash(&self, Hex<H256>) -> Result<Option<Hex<usize>>, Error>;
         #[rpc(name = "eth_getBlockTransactionCountByNumber")]

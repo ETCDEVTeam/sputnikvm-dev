@@ -161,21 +161,24 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
         }
     }
 
-    fn transaction_count(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Hex<usize>, Error> {
+    fn transaction_count(&self, address: Hex<Address>, block: Trailing<String>) -> Result<Hex<U256>, Error> {
         let state = self.state.lock().unwrap();
 
         let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
-        let mut count = 0;
+        let stateful = state.stateful();
+        let trie = stateful.state_of(block.header.state_root);
 
-        for transactions in block.transactions {
-            if transactions.caller()? == address.0 {
-                count += 1;
-            }
+        let account: Option<Account> = trie.get(&address.0);
+        match account {
+            Some(account) => {
+                Ok(Hex(account.nonce))
+            },
+            None => {
+                Ok(Hex(U256::zero()))
+            },
         }
-
-        Ok(Hex(count))
     }
 
     fn block_transaction_count_by_hash(&self, block: Hex<H256>) -> Result<Option<Hex<usize>>, Error> {
