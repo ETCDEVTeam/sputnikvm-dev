@@ -116,7 +116,7 @@ impl MinerState {
     }
 
     pub fn fat_transit(&mut self, number: usize, accounts: &[AccountChange]) {
-        while self.fat_database.len() < number {
+        while number >= self.fat_database.len() {
             let last = self.fat_database.last().unwrap().clone();
             self.fat_database.push(last);
         }
