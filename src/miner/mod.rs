@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
-use sputnikvm::{AccountChange, ValidTransaction, Patch, AccountCommitment, AccountState, HeaderParams, SeqTransactionVM, VM};
+use sputnikvm::{AccountChange, ValidTransaction, Patch, AccountCommitment, AccountState, HeaderParams, SeqTransactionVM, VM, VMStatus};
 use sputnikvm::errors::RequireError;
 use sputnikvm_stateful::MemoryStateful;
 use rand::os::OsRng;
@@ -167,6 +167,7 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
     state.fat_transit(current_block.header.number.as_usize(), &[]);
 
     for transaction in transactions.clone() {
+        let transaction_hash = transaction.rlp_hash();
         let valid = state.stateful_mut().to_valid::<P>(transaction).unwrap();
         let vm: SeqTransactionVM<P> = {
             let vm = state.stateful_mut().call(valid, HeaderParams::from(&current_block.header),
@@ -197,6 +198,14 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
             state_root: state.stateful_mut().root(),
         };
         receipts.push(receipt);
+
+        state.set_receipt_status(
+            transaction_hash,
+            match vm.status() {
+                VMStatus::ExitedOk => true,
+                _ => false,
+            }
+        );
     }
 
     let root = state.stateful_mut().root();

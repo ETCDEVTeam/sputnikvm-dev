@@ -25,6 +25,7 @@ pub struct MinerState {
     block_database: HashMap<H256, Block>,
     receipt_database: HashMap<H256, Receipt>,
     fat_database: Vec<HashMap<Address, HashMap<U256, M256>>>,
+    status_database: HashMap<H256, bool>,
 
     accounts: Vec<SecretKey>,
     database: &'static MemoryDatabase,
@@ -60,6 +61,7 @@ impl MinerState {
             transaction_database: HashMap::new(),
             receipt_database: HashMap::new(),
             fat_database: vec![HashMap::new()],
+            status_database: HashMap::new(),
 
             accounts: Vec::new(),
         }
@@ -248,5 +250,13 @@ impl MinerState {
 
     pub fn append_account(&mut self, key: SecretKey) {
         self.accounts.push(key)
+    }
+
+    pub fn set_receipt_status(&mut self, transaction_hash: H256, is_okay: bool) {
+        self.status_database.insert(transaction_hash, is_okay);
+    }
+
+    pub fn receipt_status(&self, transaction_hash: H256) -> bool {
+        *self.status_database.get(&transaction_hash).unwrap_or(&false)
     }
 }
