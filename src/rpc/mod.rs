@@ -67,7 +67,9 @@ pub struct RPCReceipt {
     pub cumulative_gas_used: String,
     pub gas_used: String,
     pub contract_address: Option<String>,
-    pub logs: Vec<RPCLog>
+    pub logs: Vec<RPCLog>,
+    pub root: Hex<H256>,
+    pub status: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
