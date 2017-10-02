@@ -55,13 +55,13 @@ pub fn to_rpc_log(receipt: &Receipt, index: usize, transaction: &Transaction, bl
 
     RPCLog {
         removed: false,
-        log_index: format!("0x{:x}", index),
-        transaction_index: format!("0x{:x}", transaction_index),
-        transaction_hash: format!("0x{:x}", transaction_hash),
-        block_hash: format!("0x{:x}", block.header.header_hash()),
-        block_number: format!("0x{:x}", block.header.number),
-        data: to_hex(&receipt.logs[index].data),
-        topics: receipt.logs[index].topics.iter().map(|t| format!("0x{:x}", t)).collect(),
+        log_index: Hex(index),
+        transaction_index: Hex(transaction_index),
+        transaction_hash: Hex(transaction_hash),
+        block_hash: Hex(block.header.header_hash()),
+        block_number: Hex(block.header.number),
+        data: Bytes(receipt.logs[index].data.clone()),
+        topics: receipt.logs[index].topics.iter().map(|t| Hex(*t)).collect(),
     }
 }
 
@@ -103,13 +103,13 @@ pub fn to_rpc_receipt(state: &MinerState, receipt: Receipt, transaction: &Transa
     };
 
     Ok(RPCReceipt {
-        transaction_hash: format!("0x{:x}", transaction_hash),
-        transaction_index: format!("0x{:x}", transaction_index),
-        block_hash: format!("0x{:x}", block.header.header_hash()),
-        block_number: format!("0x{:x}", block.header.number),
-        cumulative_gas_used: format!("0x{:x}", cumulative_gas_used),
-        gas_used: format!("0x{:x}", receipt.used_gas),
-        contract_address: contract_address.map(|v| format!("0x{:x}", v)),
+        transaction_hash: Hex(transaction_hash),
+        transaction_index: Hex(transaction_index),
+        block_hash: Hex(block.header.header_hash()),
+        block_number: Hex(block.header.number),
+        cumulative_gas_used: Hex(cumulative_gas_used),
+        gas_used: Hex(receipt.used_gas),
+        contract_address: contract_address.map(|v| Hex(v)),
         logs: {
             let mut ret = Vec::new();
             for i in 0..receipt.logs.len() {
@@ -306,14 +306,10 @@ pub fn from_topic_filter(filter: Option<RPCTopicFilter>) -> Result<TopicFilter, 
     Ok(match filter {
         None => TopicFilter::All,
         Some(RPCTopicFilter::Single(s)) => TopicFilter::Or(vec![
-            H256::from_str(&s)?
+            s.0
         ]),
         Some(RPCTopicFilter::Or(ss)) => {
-            let mut ret = Vec::new();
-            for s in ss {
-                ret.push(H256::from_str(&s)?)
-            }
-            TopicFilter::Or(ret)
+            TopicFilter::Or(ss.into_iter().map(|v| v.0).collect())
         },
     })
 }
@@ -323,7 +319,7 @@ pub fn from_log_filter(state: &MinerState, filter: RPCLogFilter) -> Result<LogFi
         from_block: from_block_number(state, filter.from_block)?,
         to_block: from_block_number(state, filter.to_block)?,
         address: match filter.address {
-            Some(val) => Some(Address::from_str(&val)?),
+            Some(val) => Some(val.0),
             None => None,
         },
         topics: match filter.topics {

@@ -31,8 +31,8 @@ pub enum Either<T, U> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum RPCTopicFilter {
-    Single(String),
-    Or(Vec<String>)
+    Single(Hex<H256>),
+    Or(Vec<Hex<H256>>)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,7 +40,7 @@ pub enum RPCTopicFilter {
 pub struct RPCLogFilter {
     pub from_block: Option<String>,
     pub to_block: Option<String>,
-    pub address: Option<String>,
+    pub address: Option<Hex<Address>>,
     pub topics: Option<Vec<Option<RPCTopicFilter>>>,
 }
 
@@ -48,25 +48,25 @@ pub struct RPCLogFilter {
 #[serde(rename_all = "camelCase")]
 pub struct RPCLog {
     pub removed: bool,
-    pub log_index: String,
-    pub transaction_index: String,
-    pub transaction_hash: String,
-    pub block_hash: String,
-    pub block_number: String,
-    pub data: String,
-    pub topics: Vec<String>,
+    pub log_index: Hex<usize>,
+    pub transaction_index: Hex<usize>,
+    pub transaction_hash: Hex<H256>,
+    pub block_hash: Hex<H256>,
+    pub block_number: Hex<U256>,
+    pub data: Bytes,
+    pub topics: Vec<Hex<H256>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCReceipt {
-    pub transaction_hash: String,
-    pub transaction_index: String,
-    pub block_hash: String,
-    pub block_number: String,
-    pub cumulative_gas_used: String,
-    pub gas_used: String,
-    pub contract_address: Option<String>,
+    pub transaction_hash: Hex<H256>,
+    pub transaction_index: Hex<usize>,
+    pub block_hash: Hex<H256>,
+    pub block_number: Hex<U256>,
+    pub cumulative_gas_used: Hex<Gas>,
+    pub gas_used: Hex<Gas>,
+    pub contract_address: Option<Hex<Address>>,
     pub logs: Vec<RPCLog>,
     pub root: Hex<H256>,
     pub status: usize,
