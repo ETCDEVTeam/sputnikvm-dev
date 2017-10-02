@@ -245,6 +245,13 @@ build_rpc_trait! {
         #[rpc(name = "eth_getCompilers")]
         fn compilers(&self) -> Result<Vec<String>, Error>;
 
+        #[rpc(name = "eth_getLogs")]
+        fn logs(&self, RPCLogFilter) -> Result<Vec<RPCLog>, Error>;
+    }
+}
+
+build_rpc_trait! {
+    pub trait FilterRPC {
         #[rpc(name = "eth_newFilter")]
         fn new_filter(&self, RPCLogFilter) -> Result<String, Error>;
         #[rpc(name = "eth_newBlockFilter")]
@@ -258,8 +265,6 @@ build_rpc_trait! {
         fn filter_changes(&self, String) -> Result<Either<Vec<String>, Vec<RPCLog>>, Error>;
         #[rpc(name = "eth_getFilterLogs")]
         fn filter_logs(&self, String) -> Result<Vec<RPCLog>, Error>;
-        #[rpc(name = "eth_getLogs")]
-        fn logs(&self, RPCLogFilter) -> Result<Vec<RPCLog>, Error>;
     }
 }
 
@@ -291,11 +296,13 @@ pub fn rpc_loop<P: 'static + Patch + Send>(
     state: Arc<Mutex<MinerState>>, addr: &SocketAddr, channel: Sender<bool>
 ) {
     let rpc = serves::MinerEthereumRPC::<P>::new(state.clone(), channel);
+    let filter = serves::MinerFilterRPC::<P>::new(state.clone());
     let debug = serves::MinerDebugRPC::<P>::new(state);
 
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());
+    io.extend_with(filter.to_delegate());
     io.extend_with(debug.to_delegate());
 
     let server = ServerBuilder::new(io)

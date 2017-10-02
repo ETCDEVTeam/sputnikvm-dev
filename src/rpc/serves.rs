@@ -1,4 +1,4 @@
-use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace, RPCDump, RPCDumpAccount, RPCTraceConfig};
+use super::{EthereumRPC, FilterRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace, RPCDump, RPCDumpAccount, RPCTraceConfig};
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
@@ -23,9 +23,13 @@ use std::marker::PhantomData;
 use jsonrpc_macros::Trailing;
 
 pub struct MinerEthereumRPC<P: Patch + Send> {
-    filter: Mutex<FilterManager>,
     state: Arc<Mutex<MinerState>>,
     channel: Sender<bool>,
+    _patch: PhantomData<P>,
+}
+
+pub struct MinerFilterRPC<P: Patch + Send> {
+    filter: Mutex<FilterManager>,
     _patch: PhantomData<P>,
 }
 
@@ -35,14 +39,23 @@ pub struct MinerDebugRPC<P: Patch + Send> {
 }
 
 unsafe impl<P: Patch + Send> Sync for MinerEthereumRPC<P> { }
+unsafe impl<P: Patch + Send> Sync for MinerFilterRPC<P> { }
 unsafe impl<P: Patch + Send> Sync for MinerDebugRPC<P> { }
 
 impl<P: Patch + Send> MinerEthereumRPC<P> {
     pub fn new(state: Arc<Mutex<MinerState>>, channel: Sender<bool>) -> Self {
         MinerEthereumRPC {
-            filter: Mutex::new(FilterManager::new(state.clone())),
             channel,
             state,
+            _patch: PhantomData,
+        }
+    }
+}
+
+impl<P: Patch + Send> MinerFilterRPC<P> {
+    pub fn new(state: Arc<Mutex<MinerState>>) -> Self {
+        MinerFilterRPC {
+            filter: Mutex::new(FilterManager::new(state)),
             _patch: PhantomData,
         }
     }
@@ -517,12 +530,21 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
         Ok(Vec::new())
     }
 
+    fn logs(&self, log: RPCLogFilter) -> Result<Vec<RPCLog>, Error> {
+        let state = self.state.lock().unwrap();
+
+        match from_log_filter(&state, log) {
+            Ok(filter) => Ok(get_logs(&state, filter)?),
+            Err(_) => Ok(Vec::new()),
+        }
+    }
+}
+
+impl<P: 'static + Patch + Send> FilterRPC for MinerFilterRPC<P> {
     fn new_filter(&self, log: RPCLogFilter) -> Result<String, Error> {
-        let filter = {
-            let state = self.state.lock().unwrap();
-            from_log_filter(&state, log)?
-        };
-        let id = self.filter.lock().unwrap().install_log_filter(filter);
+        let mut filter = self.filter.lock().unwrap();
+        let log_filter = filter.from_log_filter(log)?;
+        let id = filter.install_log_filter(log_filter);
         Ok(format!("0x{:x}", id))
     }
 
@@ -550,15 +572,6 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
     fn filter_logs(&self, id: String) -> Result<Vec<RPCLog>, Error> {
         let id = U256::from_str(&id)?.as_usize();
         Ok(self.filter.lock().unwrap().get_logs(id)?)
-    }
-
-    fn logs(&self, log: RPCLogFilter) -> Result<Vec<RPCLog>, Error> {
-        let state = self.state.lock().unwrap();
-
-        match from_log_filter(&state, log) {
-            Ok(filter) => Ok(get_logs(&state, filter)?),
-            Err(_) => Ok(Vec::new()),
-        }
     }
 }
 
