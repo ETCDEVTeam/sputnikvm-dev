@@ -580,9 +580,10 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
 
         let transaction = state.get_transaction_by_hash(hash.0)?;
         let block = state.get_block_by_hash(state.get_transaction_block_hash_by_hash(hash.0)?)?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         for other_transaction in &block.transactions {
             if other_transaction != &transaction {
                 let valid = stateful.to_valid::<P>(transaction.clone())?;
@@ -608,9 +609,10 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         let block: Block = UntrustedRlp::new(&block_rlp.0).as_val()?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
@@ -636,9 +638,10 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
             return Err(Error::NotFound);
         }
         let block: Block = state.get_block_by_number(number);
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
@@ -661,9 +664,10 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         let block: Block = state.get_block_by_hash(hash.0)?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
@@ -693,9 +697,10 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
 
         let state = self.state.lock().unwrap();
         let block: Block = UntrustedRlp::new(&buffer).as_val()?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
