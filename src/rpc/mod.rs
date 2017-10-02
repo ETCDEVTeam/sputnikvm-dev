@@ -144,7 +144,7 @@ pub struct RPCStep {
     pub gas_cost: Hex<Gas>,
     pub op: u8,
     pub pc: usize,
-    pub memory: Option<Vec<Hex<M256>>>,
+    pub memory: Option<Vec<Bytes>>,
     pub stack: Option<Vec<Hex<M256>>>,
     pub storage: Option<HashMap<Hex<U256>, Hex<M256>>>,
 }

@@ -376,15 +376,10 @@ pub fn replay_transaction<P: Patch>(
                         None
                     } else {
                         let mut ret = Vec::new();
-                        for i in 0..(if machine.state().memory.len() % 32 == 0 {
-                            machine.state().memory.len() / 32
-                        } else {
-                            machine.state().memory.len() / 32 + 1
-                        }) {
-                            ret.push(Hex(machine.state().memory.read(U256::from(i) *
-                                                                     U256::from(32))));
+                        for i in 0..machine.state().memory.len() {
+                            ret.push(machine.state().memory.read_raw(U256::from(i)));
                         }
-                        Some(ret)
+                        Some(vec![Bytes(ret)])
                     };
                     let stack = if config.disable_stack {
                         None
