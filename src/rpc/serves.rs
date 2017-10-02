@@ -1,4 +1,4 @@
-use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace, RPCDump, RPCDumpAccount};
+use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace, RPCDump, RPCDumpAccount, RPCTraceConfig};
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
@@ -574,7 +574,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         Ok(Bytes(rlp::encode(&block).to_vec()))
     }
 
-    fn trace_transaction(&self, hash: Hex<H256>) -> Result<RPCTrace, Error> {
+    fn trace_transaction(&self, hash: Hex<H256>, config: Trailing<RPCTraceConfig>) -> Result<RPCTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
 
         let transaction = state.get_transaction_by_hash(hash.0)?;
@@ -592,7 +593,7 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
             }
         }
 
-        let (steps, vm) = replay_transaction::<P>(&stateful, transaction, &block, &last_hashes)?;
+        let (steps, vm) = replay_transaction::<P>(&stateful, transaction, &block, &last_hashes, &config)?;
 
         let gas = Hex(vm.real_used_gas());
         let return_value = Bytes(vm.out().into());
@@ -603,7 +604,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block(&self, block_rlp: Bytes) -> Result<RPCBlockTrace, Error> {
+    fn trace_block(&self, block_rlp: Bytes, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         let block: Block = UntrustedRlp::new(&block_rlp.0).as_val()?;
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
@@ -612,7 +614,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
@@ -626,7 +629,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block_by_number(&self, number: usize) -> Result<RPCBlockTrace, Error> {
+    fn trace_block_by_number(&self, number: usize, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         if number > state.block_height() {
             return Err(Error::NotFound);
@@ -638,7 +642,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
@@ -652,7 +657,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block_by_hash(&self, hash: Hex<H256>) -> Result<RPCBlockTrace, Error> {
+    fn trace_block_by_hash(&self, hash: Hex<H256>, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         let block: Block = state.get_block_by_hash(hash.0)?;
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
@@ -661,7 +667,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
@@ -675,10 +682,11 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block_from_file(&self, path: String) -> Result<RPCBlockTrace, Error> {
+    fn trace_block_from_file(&self, path: String, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
         use std::fs::File;
         use std::io::Read;
 
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let mut file = File::open(path).unwrap();
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
@@ -691,7 +699,8 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {

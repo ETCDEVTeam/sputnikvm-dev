@@ -1,4 +1,4 @@
-use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter};
+use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, RPCTraceConfig};
 use super::filter::*;
 use super::serialize::*;
 use error::Error;
@@ -344,7 +344,8 @@ pub fn from_log_filter(state: &MinerState, filter: RPCLogFilter) -> Result<LogFi
 }
 
 pub fn replay_transaction<P: Patch>(
-    stateful: &MemoryStateful<'static>, transaction: Transaction, block: &Block, last_hashes: &[H256]
+    stateful: &MemoryStateful<'static>, transaction: Transaction, block: &Block,
+    last_hashes: &[H256], config: &RPCTraceConfig
 ) -> Result<(Vec<RPCStep>, SeqTransactionVM<P>), Error> {
     let valid = stateful.to_valid::<P>(transaction)?;
     let mut vm = SeqTransactionVM::<P>::new(valid, HeaderParams::from(&block.header));
@@ -368,7 +369,12 @@ pub fn replay_transaction<P: Patch>(
                         MachineStatus::ExitedErr(err) => format!("{:?}", err),
                         _ => "".to_string(),
                     };
-                    let memory = {
+                    let pc = machine.pc().position();
+                    let op = machine.pc().code()[pc];
+
+                    let memory = if config.disable_memory {
+                        None
+                    } else {
                         let mut ret = Vec::new();
                         for i in 0..(if machine.state().memory.len() % 32 == 0 {
                             machine.state().memory.len() / 32
@@ -378,19 +384,21 @@ pub fn replay_transaction<P: Patch>(
                             ret.push(Hex(machine.state().memory.read(U256::from(i) *
                                                                      U256::from(32))));
                         }
-                        ret
+                        Some(ret)
                     };
-                    let pc = machine.pc().position();
-                    let op = machine.pc().code()[pc];
-                    let stack = {
+                    let stack = if config.disable_stack {
+                        None
+                    } else {
                         let mut ret = Vec::new();
 
                         for i in 0..machine.state().stack.len() {
                             ret.push(Hex(machine.state().stack.peek(i).unwrap()));
                         }
-                        ret
+                        Some(ret)
                     };
-                    let storage = {
+                    let storage = if config.disable_storage {
+                        None
+                    } else {
                         let storage = machine.state().account_state.storage(
                             machine.state().context.address);
 
@@ -401,7 +409,7 @@ pub fn replay_transaction<P: Patch>(
                                 ret.insert(Hex(key), Hex(value));
                             }
                         }
-                        ret
+                        Some(ret)
                     };
 
                     steps.push(RPCStep {

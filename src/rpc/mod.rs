@@ -121,6 +121,14 @@ pub struct RPCTrace {
     pub struct_logs: Vec<RPCStep>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCTraceConfig {
+    pub disable_memory: bool,
+    pub disable_stack: bool,
+    pub disable_storage: bool,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCBlockTrace {
@@ -134,11 +142,11 @@ pub struct RPCStep {
     pub error: String,
     pub gas: Hex<Gas>,
     pub gas_cost: Hex<Gas>,
-    pub memory: Vec<Hex<M256>>,
     pub op: u8,
     pub pc: usize,
-    pub stack: Vec<Hex<M256>>,
-    pub storage: HashMap<Hex<U256>, Hex<M256>>,
+    pub memory: Option<Vec<Hex<M256>>>,
+    pub stack: Option<Vec<Hex<M256>>>,
+    pub storage: Option<HashMap<Hex<U256>, Hex<M256>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -260,15 +268,20 @@ build_rpc_trait! {
         #[rpc(name = "debug_getBlockRlp")]
         fn block_rlp(&self, usize) -> Result<Bytes, Error>;
         #[rpc(name = "debug_traceTransaction")]
-        fn trace_transaction(&self, Hex<H256>) -> Result<RPCTrace, Error>;
+        fn trace_transaction(&self, Hex<H256>, Trailing<RPCTraceConfig>)
+                             -> Result<RPCTrace, Error>;
         #[rpc(name = "debug_traceBlock")]
-        fn trace_block(&self, Bytes) -> Result<RPCBlockTrace, Error>;
+        fn trace_block(&self, Bytes, Trailing<RPCTraceConfig>)
+                       -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockByNumber")]
-        fn trace_block_by_number(&self, usize) -> Result<RPCBlockTrace, Error>;
+        fn trace_block_by_number(&self, usize, Trailing<RPCTraceConfig>)
+                                 -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockByHash")]
-        fn trace_block_by_hash(&self, Hex<H256>) -> Result<RPCBlockTrace, Error>;
+        fn trace_block_by_hash(&self, Hex<H256>, Trailing<RPCTraceConfig>)
+                               -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockFromFile")]
-        fn trace_block_from_file(&self, String) -> Result<RPCBlockTrace, Error>;
+        fn trace_block_from_file(&self, String, Trailing<RPCTraceConfig>)
+                                 -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_dumpBlock")]
         fn dump_block(&self, usize) -> Result<RPCDump, Error>;
     }
