@@ -31,8 +31,8 @@ pub enum Either<T, U> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum RPCTopicFilter {
-    Single(String),
-    Or(Vec<String>)
+    Single(Hex<H256>),
+    Or(Vec<Hex<H256>>)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,7 +40,7 @@ pub enum RPCTopicFilter {
 pub struct RPCLogFilter {
     pub from_block: Option<String>,
     pub to_block: Option<String>,
-    pub address: Option<String>,
+    pub address: Option<Hex<Address>>,
     pub topics: Option<Vec<Option<RPCTopicFilter>>>,
 }
 
@@ -48,25 +48,25 @@ pub struct RPCLogFilter {
 #[serde(rename_all = "camelCase")]
 pub struct RPCLog {
     pub removed: bool,
-    pub log_index: String,
-    pub transaction_index: String,
-    pub transaction_hash: String,
-    pub block_hash: String,
-    pub block_number: String,
-    pub data: String,
-    pub topics: Vec<String>,
+    pub log_index: Hex<usize>,
+    pub transaction_index: Hex<usize>,
+    pub transaction_hash: Hex<H256>,
+    pub block_hash: Hex<H256>,
+    pub block_number: Hex<U256>,
+    pub data: Bytes,
+    pub topics: Vec<Hex<H256>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCReceipt {
-    pub transaction_hash: String,
-    pub transaction_index: String,
-    pub block_hash: String,
-    pub block_number: String,
-    pub cumulative_gas_used: String,
-    pub gas_used: String,
-    pub contract_address: Option<String>,
+    pub transaction_hash: Hex<H256>,
+    pub transaction_index: Hex<usize>,
+    pub block_hash: Hex<H256>,
+    pub block_number: Hex<U256>,
+    pub cumulative_gas_used: Hex<Gas>,
+    pub gas_used: Hex<Gas>,
+    pub contract_address: Option<Hex<Address>>,
     pub logs: Vec<RPCLog>,
     pub root: Hex<H256>,
     pub status: usize,
@@ -121,6 +121,14 @@ pub struct RPCTrace {
     pub struct_logs: Vec<RPCStep>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCTraceConfig {
+    pub disable_memory: bool,
+    pub disable_stack: bool,
+    pub disable_storage: bool,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCBlockTrace {
@@ -134,11 +142,11 @@ pub struct RPCStep {
     pub error: String,
     pub gas: Hex<Gas>,
     pub gas_cost: Hex<Gas>,
-    pub memory: Vec<Hex<M256>>,
     pub op: u8,
     pub pc: usize,
-    pub stack: Vec<Hex<M256>>,
-    pub storage: HashMap<Hex<U256>, Hex<M256>>,
+    pub memory: Option<Vec<Bytes>>,
+    pub stack: Option<Vec<Hex<M256>>>,
+    pub storage: Option<HashMap<Hex<U256>, Hex<M256>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -237,6 +245,13 @@ build_rpc_trait! {
         #[rpc(name = "eth_getCompilers")]
         fn compilers(&self) -> Result<Vec<String>, Error>;
 
+        #[rpc(name = "eth_getLogs")]
+        fn logs(&self, RPCLogFilter) -> Result<Vec<RPCLog>, Error>;
+    }
+}
+
+build_rpc_trait! {
+    pub trait FilterRPC {
         #[rpc(name = "eth_newFilter")]
         fn new_filter(&self, RPCLogFilter) -> Result<String, Error>;
         #[rpc(name = "eth_newBlockFilter")]
@@ -250,8 +265,6 @@ build_rpc_trait! {
         fn filter_changes(&self, String) -> Result<Either<Vec<String>, Vec<RPCLog>>, Error>;
         #[rpc(name = "eth_getFilterLogs")]
         fn filter_logs(&self, String) -> Result<Vec<RPCLog>, Error>;
-        #[rpc(name = "eth_getLogs")]
-        fn logs(&self, RPCLogFilter) -> Result<Vec<RPCLog>, Error>;
     }
 }
 
@@ -260,15 +273,20 @@ build_rpc_trait! {
         #[rpc(name = "debug_getBlockRlp")]
         fn block_rlp(&self, usize) -> Result<Bytes, Error>;
         #[rpc(name = "debug_traceTransaction")]
-        fn trace_transaction(&self, Hex<H256>) -> Result<RPCTrace, Error>;
+        fn trace_transaction(&self, Hex<H256>, Trailing<RPCTraceConfig>)
+                             -> Result<RPCTrace, Error>;
         #[rpc(name = "debug_traceBlock")]
-        fn trace_block(&self, Bytes) -> Result<RPCBlockTrace, Error>;
+        fn trace_block(&self, Bytes, Trailing<RPCTraceConfig>)
+                       -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockByNumber")]
-        fn trace_block_by_number(&self, usize) -> Result<RPCBlockTrace, Error>;
+        fn trace_block_by_number(&self, usize, Trailing<RPCTraceConfig>)
+                                 -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockByHash")]
-        fn trace_block_by_hash(&self, Hex<H256>) -> Result<RPCBlockTrace, Error>;
+        fn trace_block_by_hash(&self, Hex<H256>, Trailing<RPCTraceConfig>)
+                               -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_traceBlockFromFile")]
-        fn trace_block_from_file(&self, String) -> Result<RPCBlockTrace, Error>;
+        fn trace_block_from_file(&self, String, Trailing<RPCTraceConfig>)
+                                 -> Result<RPCBlockTrace, Error>;
         #[rpc(name = "debug_dumpBlock")]
         fn dump_block(&self, usize) -> Result<RPCDump, Error>;
     }
@@ -278,11 +296,13 @@ pub fn rpc_loop<P: 'static + Patch + Send>(
     state: Arc<Mutex<MinerState>>, addr: &SocketAddr, channel: Sender<bool>
 ) {
     let rpc = serves::MinerEthereumRPC::<P>::new(state.clone(), channel);
+    let filter = serves::MinerFilterRPC::<P>::new(state.clone());
     let debug = serves::MinerDebugRPC::<P>::new(state);
 
     let mut io = IoHandler::default();
 
     io.extend_with(rpc.to_delegate());
+    io.extend_with(filter.to_delegate());
     io.extend_with(debug.to_delegate());
 
     let server = ServerBuilder::new(io)

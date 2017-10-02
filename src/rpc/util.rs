@@ -1,4 +1,4 @@
-use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter};
+use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, RPCTraceConfig};
 use super::filter::*;
 use super::serialize::*;
 use error::Error;
@@ -55,13 +55,13 @@ pub fn to_rpc_log(receipt: &Receipt, index: usize, transaction: &Transaction, bl
 
     RPCLog {
         removed: false,
-        log_index: format!("0x{:x}", index),
-        transaction_index: format!("0x{:x}", transaction_index),
-        transaction_hash: format!("0x{:x}", transaction_hash),
-        block_hash: format!("0x{:x}", block.header.header_hash()),
-        block_number: format!("0x{:x}", block.header.number),
-        data: to_hex(&receipt.logs[index].data),
-        topics: receipt.logs[index].topics.iter().map(|t| format!("0x{:x}", t)).collect(),
+        log_index: Hex(index),
+        transaction_index: Hex(transaction_index),
+        transaction_hash: Hex(transaction_hash),
+        block_hash: Hex(block.header.header_hash()),
+        block_number: Hex(block.header.number),
+        data: Bytes(receipt.logs[index].data.clone()),
+        topics: receipt.logs[index].topics.iter().map(|t| Hex(*t)).collect(),
     }
 }
 
@@ -103,13 +103,13 @@ pub fn to_rpc_receipt(state: &MinerState, receipt: Receipt, transaction: &Transa
     };
 
     Ok(RPCReceipt {
-        transaction_hash: format!("0x{:x}", transaction_hash),
-        transaction_index: format!("0x{:x}", transaction_index),
-        block_hash: format!("0x{:x}", block.header.header_hash()),
-        block_number: format!("0x{:x}", block.header.number),
-        cumulative_gas_used: format!("0x{:x}", cumulative_gas_used),
-        gas_used: format!("0x{:x}", receipt.used_gas),
-        contract_address: contract_address.map(|v| format!("0x{:x}", v)),
+        transaction_hash: Hex(transaction_hash),
+        transaction_index: Hex(transaction_index),
+        block_hash: Hex(block.header.header_hash()),
+        block_number: Hex(block.header.number),
+        cumulative_gas_used: Hex(cumulative_gas_used),
+        gas_used: Hex(receipt.used_gas),
+        contract_address: contract_address.map(|v| Hex(v)),
         logs: {
             let mut ret = Vec::new();
             for i in 0..receipt.logs.len() {
@@ -306,14 +306,10 @@ pub fn from_topic_filter(filter: Option<RPCTopicFilter>) -> Result<TopicFilter, 
     Ok(match filter {
         None => TopicFilter::All,
         Some(RPCTopicFilter::Single(s)) => TopicFilter::Or(vec![
-            H256::from_str(&s)?
+            s.0
         ]),
         Some(RPCTopicFilter::Or(ss)) => {
-            let mut ret = Vec::new();
-            for s in ss {
-                ret.push(H256::from_str(&s)?)
-            }
-            TopicFilter::Or(ret)
+            TopicFilter::Or(ss.into_iter().map(|v| v.0).collect())
         },
     })
 }
@@ -323,7 +319,7 @@ pub fn from_log_filter(state: &MinerState, filter: RPCLogFilter) -> Result<LogFi
         from_block: from_block_number(state, filter.from_block)?,
         to_block: from_block_number(state, filter.to_block)?,
         address: match filter.address {
-            Some(val) => Some(Address::from_str(&val)?),
+            Some(val) => Some(val.0),
             None => None,
         },
         topics: match filter.topics {
@@ -344,7 +340,8 @@ pub fn from_log_filter(state: &MinerState, filter: RPCLogFilter) -> Result<LogFi
 }
 
 pub fn replay_transaction<P: Patch>(
-    stateful: &MemoryStateful<'static>, transaction: Transaction, block: &Block, last_hashes: &[H256]
+    stateful: &MemoryStateful<'static>, transaction: Transaction, block: &Block,
+    last_hashes: &[H256], config: &RPCTraceConfig
 ) -> Result<(Vec<RPCStep>, SeqTransactionVM<P>), Error> {
     let valid = stateful.to_valid::<P>(transaction)?;
     let mut vm = SeqTransactionVM::<P>::new(valid, HeaderParams::from(&block.header));
@@ -368,29 +365,31 @@ pub fn replay_transaction<P: Patch>(
                         MachineStatus::ExitedErr(err) => format!("{:?}", err),
                         _ => "".to_string(),
                     };
-                    let memory = {
-                        let mut ret = Vec::new();
-                        for i in 0..(if machine.state().memory.len() % 32 == 0 {
-                            machine.state().memory.len() / 32
-                        } else {
-                            machine.state().memory.len() / 32 + 1
-                        }) {
-                            ret.push(Hex(machine.state().memory.read(U256::from(i) *
-                                                                     U256::from(32))));
-                        }
-                        ret
-                    };
                     let pc = machine.pc().position();
                     let op = machine.pc().code()[pc];
-                    let stack = {
+
+                    let memory = if config.disable_memory {
+                        None
+                    } else {
+                        let mut ret = Vec::new();
+                        for i in 0..machine.state().memory.len() {
+                            ret.push(machine.state().memory.read_raw(U256::from(i)));
+                        }
+                        Some(vec![Bytes(ret)])
+                    };
+                    let stack = if config.disable_stack {
+                        None
+                    } else {
                         let mut ret = Vec::new();
 
                         for i in 0..machine.state().stack.len() {
                             ret.push(Hex(machine.state().stack.peek(i).unwrap()));
                         }
-                        ret
+                        Some(ret)
                     };
-                    let storage = {
+                    let storage = if config.disable_storage {
+                        None
+                    } else {
                         let storage = machine.state().account_state.storage(
                             machine.state().context.address);
 
@@ -401,7 +400,7 @@ pub fn replay_transaction<P: Patch>(
                                 ret.insert(Hex(key), Hex(value));
                             }
                         }
-                        ret
+                        Some(ret)
                     };
 
                     steps.push(RPCStep {

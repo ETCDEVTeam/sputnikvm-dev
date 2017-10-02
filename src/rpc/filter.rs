@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use blockchain::chain::HeaderHash;
+use rpc::RPCLogFilter;
 
 use super::{RPCLog, Either};
 use super::util::*;
@@ -102,6 +103,11 @@ impl FilterManager {
             filters: HashMap::new(),
             unmodified_filters: HashMap::new(),
         }
+    }
+
+    pub fn from_log_filter(&self, log: RPCLogFilter) -> Result<LogFilter, Error> {
+        let state = self.state.lock().unwrap();
+        from_log_filter(&state, log)
     }
 
     pub fn install_log_filter(&mut self, filter: LogFilter) -> usize {

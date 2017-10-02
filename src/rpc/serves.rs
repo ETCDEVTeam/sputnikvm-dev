@@ -1,4 +1,4 @@
-use super::{EthereumRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace, RPCDump, RPCDumpAccount};
+use super::{EthereumRPC, FilterRPC, DebugRPC, Either, RPCTransaction, RPCTrace, RPCStep, RPCBlock, RPCLog, RPCReceipt, RPCLogFilter, RPCBlockTrace, RPCDump, RPCDumpAccount, RPCTraceConfig};
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
@@ -23,9 +23,13 @@ use std::marker::PhantomData;
 use jsonrpc_macros::Trailing;
 
 pub struct MinerEthereumRPC<P: Patch + Send> {
-    filter: Mutex<FilterManager>,
     state: Arc<Mutex<MinerState>>,
     channel: Sender<bool>,
+    _patch: PhantomData<P>,
+}
+
+pub struct MinerFilterRPC<P: Patch + Send> {
+    filter: Mutex<FilterManager>,
     _patch: PhantomData<P>,
 }
 
@@ -35,14 +39,23 @@ pub struct MinerDebugRPC<P: Patch + Send> {
 }
 
 unsafe impl<P: Patch + Send> Sync for MinerEthereumRPC<P> { }
+unsafe impl<P: Patch + Send> Sync for MinerFilterRPC<P> { }
 unsafe impl<P: Patch + Send> Sync for MinerDebugRPC<P> { }
 
 impl<P: Patch + Send> MinerEthereumRPC<P> {
     pub fn new(state: Arc<Mutex<MinerState>>, channel: Sender<bool>) -> Self {
         MinerEthereumRPC {
-            filter: Mutex::new(FilterManager::new(state.clone())),
             channel,
             state,
+            _patch: PhantomData,
+        }
+    }
+}
+
+impl<P: Patch + Send> MinerFilterRPC<P> {
+    pub fn new(state: Arc<Mutex<MinerState>>) -> Self {
+        MinerFilterRPC {
+            filter: Mutex::new(FilterManager::new(state)),
             _patch: PhantomData,
         }
     }
@@ -517,12 +530,21 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
         Ok(Vec::new())
     }
 
+    fn logs(&self, log: RPCLogFilter) -> Result<Vec<RPCLog>, Error> {
+        let state = self.state.lock().unwrap();
+
+        match from_log_filter(&state, log) {
+            Ok(filter) => Ok(get_logs(&state, filter)?),
+            Err(_) => Ok(Vec::new()),
+        }
+    }
+}
+
+impl<P: 'static + Patch + Send> FilterRPC for MinerFilterRPC<P> {
     fn new_filter(&self, log: RPCLogFilter) -> Result<String, Error> {
-        let filter = {
-            let state = self.state.lock().unwrap();
-            from_log_filter(&state, log)?
-        };
-        let id = self.filter.lock().unwrap().install_log_filter(filter);
+        let mut filter = self.filter.lock().unwrap();
+        let log_filter = filter.from_log_filter(log)?;
+        let id = filter.install_log_filter(log_filter);
         Ok(format!("0x{:x}", id))
     }
 
@@ -551,15 +573,6 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
         let id = U256::from_str(&id)?.as_usize();
         Ok(self.filter.lock().unwrap().get_logs(id)?)
     }
-
-    fn logs(&self, log: RPCLogFilter) -> Result<Vec<RPCLog>, Error> {
-        let state = self.state.lock().unwrap();
-
-        match from_log_filter(&state, log) {
-            Ok(filter) => Ok(get_logs(&state, filter)?),
-            Err(_) => Ok(Vec::new()),
-        }
-    }
 }
 
 impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
@@ -574,14 +587,16 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         Ok(Bytes(rlp::encode(&block).to_vec()))
     }
 
-    fn trace_transaction(&self, hash: Hex<H256>) -> Result<RPCTrace, Error> {
+    fn trace_transaction(&self, hash: Hex<H256>, config: Trailing<RPCTraceConfig>) -> Result<RPCTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
 
         let transaction = state.get_transaction_by_hash(hash.0)?;
         let block = state.get_block_by_hash(state.get_transaction_block_hash_by_hash(hash.0)?)?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         for other_transaction in &block.transactions {
             if other_transaction != &transaction {
                 let valid = stateful.to_valid::<P>(transaction.clone())?;
@@ -592,7 +607,7 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
             }
         }
 
-        let (steps, vm) = replay_transaction::<P>(&stateful, transaction, &block, &last_hashes)?;
+        let (steps, vm) = replay_transaction::<P>(&stateful, transaction, &block, &last_hashes, &config)?;
 
         let gas = Hex(vm.real_used_gas());
         let return_value = Bytes(vm.out().into());
@@ -603,16 +618,19 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block(&self, block_rlp: Bytes) -> Result<RPCBlockTrace, Error> {
+    fn trace_block(&self, block_rlp: Bytes, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         let block: Block = UntrustedRlp::new(&block_rlp.0).as_val()?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
@@ -626,19 +644,22 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block_by_number(&self, number: usize) -> Result<RPCBlockTrace, Error> {
+    fn trace_block_by_number(&self, number: usize, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         if number > state.block_height() {
             return Err(Error::NotFound);
         }
         let block: Block = state.get_block_by_number(number);
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
@@ -652,16 +673,19 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block_by_hash(&self, hash: Hex<H256>) -> Result<RPCBlockTrace, Error> {
+    fn trace_block_by_hash(&self, hash: Hex<H256>, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let state = self.state.lock().unwrap();
         let block: Block = state.get_block_by_hash(hash.0)?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
@@ -675,23 +699,26 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
         })
     }
 
-    fn trace_block_from_file(&self, path: String) -> Result<RPCBlockTrace, Error> {
+    fn trace_block_from_file(&self, path: String, config: Trailing<RPCTraceConfig>) -> Result<RPCBlockTrace, Error> {
         use std::fs::File;
         use std::io::Read;
 
+        let config = config.unwrap_or(RPCTraceConfig::default());
         let mut file = File::open(path).unwrap();
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer).unwrap();
 
         let state = self.state.lock().unwrap();
         let block: Block = UntrustedRlp::new(&buffer).as_val()?;
+        let last_block = state.get_block_by_number(if block.header.number == U256::zero() { 0 } else { block.header.number.as_usize() - 1 });
         let last_hashes = state.get_last_256_block_hashes_by_number(block.header.number.as_usize());
 
-        let mut stateful: MemoryStateful<'static> = state.stateful_at(block.header.state_root);
+        let mut stateful: MemoryStateful<'static> = state.stateful_at(last_block.header.state_root);
         let mut steps = Vec::new();
         for transaction in block.transactions.clone() {
             let (mut local_steps, vm) = replay_transaction::<P>(&stateful, transaction,
-                                                                &block, &last_hashes)?;
+                                                                &block, &last_hashes,
+                                                                &config)?;
             steps.append(&mut local_steps);
             let mut accounts = Vec::new();
             for account in vm.accounts() {

@@ -206,6 +206,8 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
                 _ => false,
             }
         );
+
+        println!("0x{:x}", transaction_hash);
     }
 
     let root = state.stateful_mut().root();

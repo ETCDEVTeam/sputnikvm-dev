@@ -13,7 +13,12 @@ impl<T: LowerHex> Serialize for Hex<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {
-        serializer.serialize_str(&format!("0x{:x}", self.0))
+        let value = format!("0x{:x}", self.0);
+        if &value == "0x" {
+            serializer.serialize_str("0x0")
+        } else {
+            serializer.serialize_str(&value)
+        }
     }
 }
 
@@ -80,5 +85,27 @@ impl<'de> Deserialize<'de> for Bytes {
         where D: Deserializer<'de>
     {
         deserializer.deserialize_str(BytesVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bigint::*;
+    use serde_json;
+
+    #[test]
+    fn hex_single_digit() {
+        assert_eq!("\"0x1\"", serde_json::to_string(&Hex(U256::one())).unwrap());
+    }
+
+    #[test]
+    fn hex_zero() {
+        assert_eq!("\"0x0\"", serde_json::to_string(&Hex(U256::zero())).unwrap());
+    }
+
+    #[test]
+    fn bytes_single_digit() {
+        assert_eq!("\"0x01\"", serde_json::to_string(&Bytes(vec![1])).unwrap());
     }
 }
