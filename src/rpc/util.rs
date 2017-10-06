@@ -173,7 +173,7 @@ pub fn to_rpc_block(block: Block, total_header: TotalHeader, full_transactions: 
     RPCBlock {
         number: Hex(block.header.number),
         hash: Hex(block.header.header_hash()),
-        parent_hash: Hex(block.header.parent_hash()),
+        parent_hash: Hex(block.header.parent_hash),
         nonce: Hex(block.header.nonce),
         sha3_uncles: Hex(block.header.ommers_hash),
         logs_bloom: Hex(logs_bloom),
