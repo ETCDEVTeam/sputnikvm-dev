@@ -4,6 +4,27 @@ pub struct SourceItem {
     pub file_index: usize,
 }
 
+impl SourceItem {
+    pub fn has_intersection(&self, other: &SourceItem) -> bool {
+        let self_start = self.offset;
+        let other_start = other.offset;
+        let self_end = self.offset + self.length;
+        let other_end = other.offset + other.length;
+
+        self.file_index == other.file_index &&
+            self_end > other_start && self_start < other_end
+    }
+
+    pub fn find_intersection<'a>(&self, others: &'a [SourceItem]) -> Option<&'a SourceItem> {
+        for item in others {
+            if self.has_intersection(item) {
+                return Some(item);
+            }
+        }
+        return None;
+    }
+}
+
 pub enum JumpType {
     FunctionIn,
     FunctionOut,

@@ -125,9 +125,21 @@ pub struct RPCTrace {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCTraceConfig {
+    #[serde(default)]
     pub disable_memory: bool,
+    #[serde(default)]
     pub disable_stack: bool,
+    #[serde(default)]
     pub disable_storage: bool,
+    #[serde(default)]
+    pub breakpoints: Option<RPCBreakpointConfig>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RPCBreakpointConfig {
+    pub source_map: String,
+    pub breakpoints: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -145,6 +157,7 @@ pub struct RPCStep {
     pub gas_cost: Hex<Gas>,
     pub op: u8,
     pub pc: usize,
+    pub opcode_pc: usize,
     pub memory: Option<Vec<Bytes>>,
     pub stack: Option<Vec<Hex<M256>>>,
     pub storage: Option<HashMap<Hex<U256>, Hex<M256>>>,

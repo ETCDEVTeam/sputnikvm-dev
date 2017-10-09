@@ -1,6 +1,7 @@
 use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, RPCTraceConfig};
 use super::filter::*;
 use super::serialize::*;
+use super::solidity::*;
 use error::Error;
 use miner::MinerState;
 
@@ -348,6 +349,9 @@ pub fn replay_transaction<P: Patch>(
     let mut steps = Vec::new();
     let mut last_gas = Gas::zero();
 
+    let breakpoints = config.breakpoints.clone().map(|v| (parse_source_map(&v.source_map),
+                                                          parse_source(&v.breakpoints)));
+
     loop {
         match vm.status() {
             VMStatus::ExitedOk | VMStatus::ExitedErr(_) => break,
@@ -366,6 +370,7 @@ pub fn replay_transaction<P: Patch>(
                         _ => "".to_string(),
                     };
                     let pc = machine.pc().position();
+                    let opcode_pc = machine.pc().opcode_position();
                     let op = machine.pc().code()[pc];
 
                     let memory = if config.disable_memory {
@@ -403,16 +408,32 @@ pub fn replay_transaction<P: Patch>(
                         Some(ret)
                     };
 
-                    steps.push(RPCStep {
-                        depth,
-                        error,
-                        gas: Hex(gas),
-                        gas_cost: Hex(gas_cost),
-                        memory,
-                        op, pc,
-                        stack,
-                        storage
-                    });
+                    if let &Some((ref source_maps, ref breakpoints)) = &breakpoints {
+                        let source_map = &source_maps[opcode_pc];
+                        if let Some(breakpoint) = source_map.source.find_intersection(breakpoints) {
+                            steps.push(RPCStep {
+                                depth,
+                                error,
+                                gas: Hex(gas),
+                                gas_cost: Hex(gas_cost),
+                                memory,
+                                op, pc, opcode_pc,
+                                stack,
+                                storage
+                            });
+                        }
+                    } else {
+                        steps.push(RPCStep {
+                            depth,
+                            error,
+                            gas: Hex(gas),
+                            gas_cost: Hex(gas_cost),
+                            memory,
+                            op, pc, opcode_pc,
+                            stack,
+                            storage
+                        });
+                    }
                 }
             },
         }
