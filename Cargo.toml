@@ -1,6 +1,6 @@
 [package]
 name = "sputnikvm-dev"
-version = "0.1.3"
+version = "0.2.0"
 license = "Apache-2.0"
 authors = ["Wei Tang <hi@that.world>"]
 description = "Test RPC tool for Ethereum written in Rust"
@@ -16,7 +16,7 @@ clap = "2.26"
 secp256k1-plus = "0.5"
 rand = "0.3.1"
 sha3 = "0.6"
-blockchain = "0.1"
+blockchain = "0.2"
 etcommon-block = "0.3"
 etcommon-trie = "0.3"
 etcommon-bigint = "0.2"

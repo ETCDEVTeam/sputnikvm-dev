@@ -2,6 +2,7 @@ use super::{EthereumRPC, FilterRPC, DebugRPC, Either, RPCTransaction, RPCTrace, 
 use super::util::*;
 use super::filter::*;
 use super::serialize::*;
+use super::solidity::*;
 
 use error::Error;
 use miner::MinerState;
