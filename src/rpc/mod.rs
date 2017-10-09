@@ -158,6 +158,7 @@ pub struct RPCStep {
     pub op: u8,
     pub pc: usize,
     pub opcode_pc: usize,
+    pub breakpoint_index: Option<usize>,
     pub memory: Option<Vec<Bytes>>,
     pub stack: Option<Vec<Hex<M256>>>,
     pub storage: Option<HashMap<Hex<U256>, Hex<M256>>>,

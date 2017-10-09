@@ -410,12 +410,13 @@ pub fn replay_transaction<P: Patch>(
 
                     if let &Some((ref source_maps, ref breakpoints)) = &breakpoints {
                         let source_map = &source_maps[opcode_pc];
-                        if let Some(breakpoint) = source_map.source.find_intersection(breakpoints) {
+                        if let Some((breakpoint_index, breakpoint)) = source_map.source.find_intersection(breakpoints) {
                             steps.push(RPCStep {
                                 depth,
                                 error,
                                 gas: Hex(gas),
                                 gas_cost: Hex(gas_cost),
+                                breakpoint_index: Some(breakpoint_index),
                                 memory,
                                 op, pc, opcode_pc,
                                 stack,
@@ -428,6 +429,7 @@ pub fn replay_transaction<P: Patch>(
                             error,
                             gas: Hex(gas),
                             gas_cost: Hex(gas_cost),
+                            breakpoint_index: None,
                             memory,
                             op, pc, opcode_pc,
                             stack,

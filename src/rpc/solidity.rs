@@ -15,10 +15,10 @@ impl SourceItem {
             self_end > other_start && self_start < other_end
     }
 
-    pub fn find_intersection<'a>(&self, others: &'a [SourceItem]) -> Option<&'a SourceItem> {
-        for item in others {
+    pub fn find_intersection<'a>(&self, others: &'a [SourceItem]) -> Option<(usize, &'a SourceItem)> {
+        for (index, item) in others.iter().enumerate() {
             if self.has_intersection(item) {
-                return Some(item);
+                return Some((index, item));
             }
         }
         return None;
