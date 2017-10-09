@@ -16,6 +16,7 @@ mod serves;
 mod filter;
 mod util;
 mod serialize;
+mod solidity;
 
 use error::Error;
 use super::miner::MinerState;
