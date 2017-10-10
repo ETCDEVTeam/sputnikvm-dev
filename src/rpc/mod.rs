@@ -138,8 +138,8 @@ pub struct RPCTraceConfig {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCBreakpointConfig {
-    pub source_map: String,
-    pub breakpoints: String,
+    pub source_map: HashMap<Hex<Address>, String>,
+    pub breakpoints: HashMap<Hex<Address>, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -159,6 +159,8 @@ pub struct RPCStep {
     pub pc: usize,
     pub opcode_pc: usize,
     pub breakpoint_index: Option<usize>,
+    pub breakpoint: Option<String>,
+    pub breakpoint_address: Option<Hex<Address>>,
     pub memory: Option<Vec<Bytes>>,
     pub stack: Option<Vec<Hex<M256>>>,
     pub storage: Option<HashMap<Hex<U256>, Hex<M256>>>,
