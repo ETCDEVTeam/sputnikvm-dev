@@ -3,16 +3,19 @@ use secp256k1;
 use sputnikvm::errors::PreExecutionError;
 use rlp::DecoderError;
 use hexutil::ParseHexError;
+use std::num::ParseIntError;
 
 #[derive(Debug)]
 pub enum Error {
     InvalidParams,
     HexError,
+    IntError,
     UnsupportedTrieQuery,
     ECDSAError,
     NotFound,
     RlpError,
     CallError,
+    UnknownSourceMapJump,
 }
 
 impl From<PreExecutionError> for Error {
@@ -30,6 +33,12 @@ impl From<DecoderError> for Error {
 impl From<ParseHexError> for Error {
     fn from(val: ParseHexError) -> Error {
         Error::HexError
+    }
+}
+
+impl From<ParseIntError> for Error {
+    fn from(val: ParseIntError) -> Error {
+        Error::IntError
     }
 }
 

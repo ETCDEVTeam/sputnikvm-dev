@@ -1,3 +1,5 @@
+use error::Error;
+
 pub struct SourceItem {
     pub offset: usize,
     pub length: usize,
@@ -36,9 +38,7 @@ pub struct SourceMapItem {
     pub jump: Option<JumpType>,
 }
 
-// TODO: Do not panic in parsing error.
-
-pub fn parse_source(s: &str) -> Vec<SourceItem> {
+pub fn parse_source(s: &str) -> Result<Vec<SourceItem>, Error> {
     let mut ret = Vec::new();
     let mut last = 0;
     for item in s.split(';') {
@@ -47,7 +47,7 @@ pub fn parse_source(s: &str) -> Vec<SourceItem> {
             if raw.is_empty() {
                 values.push(last);
             } else {
-                let value = raw.parse().unwrap();
+                let value = raw.parse()?;
                 values.push(value);
                 last = value;
             }
@@ -58,10 +58,10 @@ pub fn parse_source(s: &str) -> Vec<SourceItem> {
         }
         ret.push(SourceItem { offset: values[0], length: values[1], file_index: values[2] });
     }
-    ret
+    Ok(ret)
 }
 
-pub fn parse_source_map(s: &str) -> Vec<SourceMapItem> {
+pub fn parse_source_map(s: &str) -> Result<Vec<SourceMapItem>, Error> {
     let mut ret = Vec::new();
     let mut last = 0;
     for item in s.split(';') {
@@ -75,7 +75,7 @@ pub fn parse_source_map(s: &str) -> Vec<SourceMapItem> {
             if raw.is_empty() {
                 values.push(last);
             } else {
-                let value = raw.parse().unwrap();
+                let value = raw.parse()?;
                 values.push(value);
                 last = value;
             }
@@ -86,15 +86,17 @@ pub fn parse_source_map(s: &str) -> Vec<SourceMapItem> {
         }
         ret.push(SourceMapItem {
             source: SourceItem { offset: values[0], length: values[1], file_index: values[2] },
-            jump: jump_value.map(|jump_value| {
-                match jump_value {
+            jump: if let Some(jump_value) = jump_value {
+                Some(match jump_value {
                     "i" => JumpType::FunctionIn,
                     "o" => JumpType::FunctionOut,
                     "-" => JumpType::Regular,
-                    _ => panic!(),
-                }
-            }),
+                    _ => return Err(Error::UnknownSourceMapJump),
+                })
+            } else {
+                None
+            },
         });
     }
-    ret
+    Ok(ret)
 }

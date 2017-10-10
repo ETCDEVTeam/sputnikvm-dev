@@ -408,16 +408,17 @@ pub fn replay_transaction<P: Patch>(
                     if let &Some(RPCBreakpointConfig {
                         ref source_map, ref breakpoints
                     }) = &config.breakpoints {
-                        let breakpoints = breakpoints.get(&Hex(machine.state().context.address))
-                            .clone().map(|v| parse_source(&v));
-                        let source_map = source_map.get(&Hex(machine.state().context.address))
-                            .clone().map(|v| parse_source_map(&v));
-
-                        if let (&Some(ref source_map), &Some(ref breakpoints)) =
-                            (&source_map, &breakpoints)
+                        if let (Some(ref breakpoints), Some(ref source_map)) =
+                            (breakpoints.get(&Hex(machine.state().context.address)),
+                             source_map.get(&Hex(machine.state().context.address)))
                         {
+                            let breakpoints = parse_source(breakpoints)?;
+                            let source_map = parse_source_map(source_map)?;
+
                             let source_map = &source_map[opcode_pc];
-                            if let Some((breakpoint_index, breakpoint)) = source_map.source.find_intersection(breakpoints) {
+                            if let Some((breakpoint_index, breakpoint)) =
+                                source_map.source.find_intersection(&breakpoints)
+                            {
                                 steps.push(RPCStep {
                                     depth,
                                     error,
