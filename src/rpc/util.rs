@@ -1,4 +1,4 @@
-use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, RPCTraceConfig};
+use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, RPCTraceConfig, RPCBreakpointConfig};
 use super::filter::*;
 use super::serialize::*;
 use super::solidity::*;
@@ -349,9 +349,6 @@ pub fn replay_transaction<P: Patch>(
     let mut steps = Vec::new();
     let mut last_gas = Gas::zero();
 
-    let breakpoints = config.breakpoints.clone().map(|v| (parse_source_map(&v.source_map),
-                                                          parse_source(&v.breakpoints)));
-
     loop {
         match vm.status() {
             VMStatus::ExitedOk | VMStatus::ExitedErr(_) => break,
@@ -408,20 +405,31 @@ pub fn replay_transaction<P: Patch>(
                         Some(ret)
                     };
 
-                    if let &Some((ref source_maps, ref breakpoints)) = &breakpoints {
-                        let source_map = &source_maps[opcode_pc];
-                        if let Some((breakpoint_index, breakpoint)) = source_map.source.find_intersection(breakpoints) {
-                            steps.push(RPCStep {
-                                depth,
-                                error,
-                                gas: Hex(gas),
-                                gas_cost: Hex(gas_cost),
-                                breakpoint_index: Some(breakpoint_index),
-                                memory,
-                                op, pc, opcode_pc,
-                                stack,
-                                storage
-                            });
+                    if let &Some(RPCBreakpointConfig {
+                        ref source_map, ref breakpoints
+                    }) = &config.breakpoints {
+                        let breakpoints = breakpoints.get(&Hex(machine.state().context.address))
+                            .clone().map(|v| parse_source(&v));
+                        let source_map = source_map.get(&Hex(machine.state().context.address))
+                            .clone().map(|v| parse_source_map(&v));
+
+                        if let (&Some(ref source_map), &Some(ref breakpoints)) =
+                            (&source_map, &breakpoints)
+                        {
+                            let source_map = &source_map[opcode_pc];
+                            if let Some((breakpoint_index, breakpoint)) = source_map.source.find_intersection(breakpoints) {
+                                steps.push(RPCStep {
+                                    depth,
+                                    error,
+                                    gas: Hex(gas),
+                                    gas_cost: Hex(gas_cost),
+                                    breakpoint_index: Some(breakpoint_index),
+                                    memory,
+                                    op, pc, opcode_pc,
+                                    stack,
+                                    storage
+                                });
+                            }
                         }
                     } else {
                         steps.push(RPCStep {

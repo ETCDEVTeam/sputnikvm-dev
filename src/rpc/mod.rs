@@ -138,8 +138,8 @@ pub struct RPCTraceConfig {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RPCBreakpointConfig {
-    pub source_map: String,
-    pub breakpoints: String,
+    pub source_map: HashMap<Hex<Address>, String>,
+    pub breakpoints: HashMap<Hex<Address>, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
