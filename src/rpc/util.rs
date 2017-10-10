@@ -14,6 +14,7 @@ use sputnikvm::{ValidTransaction, VM, VMStatus, MachineStatus, HeaderParams, Seq
 use sputnikvm_stateful::MemoryStateful;
 use std::str::FromStr;
 use std::collections::HashMap;
+use sha3::{Keccak256, Digest};
 
 use jsonrpc_macros::Trailing;
 
@@ -369,6 +370,8 @@ pub fn replay_transaction<P: Patch>(
                     let pc = machine.pc().position();
                     let opcode_pc = machine.pc().opcode_position();
                     let op = machine.pc().code()[pc];
+                    let code_hash = H256::from(Keccak256::digest(machine.pc().code()).as_slice());
+                    let address = machine.state().context.address;
 
                     let memory = if config.disable_memory {
                         None
@@ -409,8 +412,8 @@ pub fn replay_transaction<P: Patch>(
                         ref source_map, ref breakpoints
                     }) = &config.breakpoints {
                         if let (Some(ref breakpoints), Some(ref source_map)) =
-                            (breakpoints.get(&Hex(machine.state().context.address)),
-                             source_map.get(&Hex(machine.state().context.address)))
+                            (breakpoints.get(&Hex(code_hash)),
+                             source_map.get(&Hex(code_hash)))
                         {
                             let breakpoints = parse_source(breakpoints)?;
                             let source_map = parse_source_map(source_map)?;
@@ -428,7 +431,8 @@ pub fn replay_transaction<P: Patch>(
                                     breakpoint: Some(format!(
                                         "{}:{}:{}", breakpoint.offset, breakpoint.length,
                                         breakpoint.file_index)),
-                                    breakpoint_address: Some(Hex(machine.state().context.address)),
+                                    code_hash: Hex(code_hash),
+                                    address: Hex(address),
                                     memory,
                                     op, pc, opcode_pc,
                                     stack,
@@ -444,7 +448,8 @@ pub fn replay_transaction<P: Patch>(
                             gas_cost: Hex(gas_cost),
                             breakpoint_index: None,
                             breakpoint: None,
-                            breakpoint_address: None,
+                            code_hash: Hex(code_hash),
+                            address: Hex(address),
                             memory,
                             op, pc, opcode_pc,
                             stack,
