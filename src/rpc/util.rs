@@ -1,4 +1,4 @@
-use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, RPCTraceConfig, RPCBreakpointConfig};
+use super::{EthereumRPC, Either, RPCStep, RPCTransaction, RPCBlock, RPCLog, RPCReceipt, RPCTopicFilter, RPCLogFilter, RPCTraceConfig, RPCBreakpointConfig, RPCSourceMapConfig};
 use super::filter::*;
 use super::serialize::*;
 use super::solidity::*;
@@ -411,14 +411,13 @@ pub fn replay_transaction<P: Patch>(
                     if let &Some(RPCBreakpointConfig {
                         ref source_map, ref breakpoints
                     }) = &config.breakpoints {
-                        if let (Some(ref breakpoints), Some(ref source_map)) =
-                            (breakpoints.get(&Hex(code_hash)),
-                             source_map.get(&Hex(code_hash)))
+                        if let Some(&RPCSourceMapConfig { ref source_map, ref source_list }) =
+                            source_map.get(&Hex(code_hash))
                         {
-                            let breakpoints = parse_source(breakpoints)?;
-                            let source_map = parse_source_map(source_map)?;
-
+                            let source_map = parse_source_map(source_map, source_list)?;
                             let source_map = &source_map[opcode_pc];
+
+                            let breakpoints = parse_source(breakpoints)?;
                             if let Some((breakpoint_index, breakpoint)) =
                                 source_map.source.find_intersection(&breakpoints)
                             {
@@ -430,7 +429,7 @@ pub fn replay_transaction<P: Patch>(
                                     breakpoint_index: Some(breakpoint_index),
                                     breakpoint: Some(format!(
                                         "{}:{}:{}", breakpoint.offset, breakpoint.length,
-                                        breakpoint.file_index)),
+                                        breakpoint.file_name)),
                                     code_hash: Hex(code_hash),
                                     address: Hex(address),
                                     memory,
