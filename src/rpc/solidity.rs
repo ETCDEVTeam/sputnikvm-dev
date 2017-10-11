@@ -3,7 +3,7 @@ use error::Error;
 pub struct SourceItem {
     pub offset: usize,
     pub length: usize,
-    pub file_index: usize,
+    pub file_name: String,
 }
 
 impl SourceItem {
@@ -13,7 +13,7 @@ impl SourceItem {
         let self_end = self.offset + self.length;
         let other_end = other.offset + other.length;
 
-        self.file_index == other.file_index &&
+        self.file_name == other.file_name &&
             self_end > other_start && self_start < other_end
     }
 
@@ -43,7 +43,12 @@ pub fn parse_source(s: &str) -> Result<Vec<SourceItem>, Error> {
     let mut last = 0;
     for item in s.split(';') {
         let mut values: Vec<usize> = Vec::new();
+        let mut file_name = None;
         for raw in item.split(':') {
+            if values.len() > 2 {
+                file_name = Some(raw.to_string());
+                break;
+            }
             if raw.is_empty() {
                 values.push(last);
             } else {
@@ -53,15 +58,20 @@ pub fn parse_source(s: &str) -> Result<Vec<SourceItem>, Error> {
             }
         }
 
-        while values.len() < 3 {
+        while values.len() < 2 {
             values.push(last);
         }
-        ret.push(SourceItem { offset: values[0], length: values[1], file_index: values[2] });
+
+        if file_name.is_none() {
+            return Err(Error::InvalidParams);
+        }
+
+        ret.push(SourceItem { offset: values[0], length: values[1], file_name: file_name.unwrap() });
     }
     Ok(ret)
 }
 
-pub fn parse_source_map(s: &str) -> Result<Vec<SourceMapItem>, Error> {
+pub fn parse_source_map(s: &str, l: &[String]) -> Result<Vec<SourceMapItem>, Error> {
     let mut ret = Vec::new();
     let mut last = 0;
     for item in s.split(';') {
@@ -84,8 +94,10 @@ pub fn parse_source_map(s: &str) -> Result<Vec<SourceMapItem>, Error> {
         while values.len() < 3 {
             values.push(last);
         }
+
+        let file_index = values[2];
         ret.push(SourceMapItem {
-            source: SourceItem { offset: values[0], length: values[1], file_index: values[2] },
+            source: SourceItem { offset: values[0], length: values[1], file_name: l[file_index].clone() },
             jump: if let Some(jump_value) = jump_value {
                 Some(match jump_value {
                     "i" => JumpType::FunctionIn,
