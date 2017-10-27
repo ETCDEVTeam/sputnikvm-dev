@@ -26,9 +26,15 @@ extern crate clap;
 extern crate log;
 extern crate env_logger;
 
+#[cfg(feature = "frontend")]
+extern crate hyper;
+
 mod error;
 mod miner;
 mod rpc;
+
+#[cfg(feature = "frontend")]
+mod assets;
 
 use miner::MinerState;
 use rand::os::OsRng;
@@ -92,6 +98,41 @@ fn main() {
     thread::spawn(move || {
         miner::mine_loop::<EIP160Patch>(miner_arc, receiver);
     });
+
+    #[cfg(feature = "frontend")]
+    {
+        thread::spawn(move || {
+            use hyper::Server;
+            use hyper::server::Request;
+            use hyper::server::Response;
+            use hyper::uri::RequestUri::AbsolutePath;
+
+            fn handle_index(req: Request, res: Response) {
+                match req.uri {
+                    AbsolutePath(ref path) => {
+                        println!("GET {}", &path);
+                        if &path[..] == "/" {
+                            res.send(&assets::__index_html).unwrap();
+                        } else {
+                            match assets::get(&format!(".{}", path)) {
+                                Ok(val) => {
+                                    res.send(val).unwrap();
+                                },
+                                Err(e) => {
+                                    res.send(e.as_bytes()).unwrap();
+                                },
+                            }
+                        }
+                    },
+                    _ => {
+                        return;
+                    }
+                }
+            }
+
+            Server::http("127.0.0.1:8380").unwrap().handle(handle_index).unwrap();
+        });
+    }
 
     rpc::rpc_loop::<EIP160Patch>(
         rpc_arc,
