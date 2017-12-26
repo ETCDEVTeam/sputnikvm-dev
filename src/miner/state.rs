@@ -148,24 +148,23 @@ impl MinerState {
                     database.entry(address).or_insert(HashMap::new());
                 },
                 AccountChange::Create {
-                    address, storage, exists, ..
+                    address, storage, ..
                 } => {
-                    if !exists {
-                        database.remove(&address);
-                    } else {
-                        let storage: HashMap<U256, M256> = storage.into();
+                    let storage: HashMap<U256, M256> = storage.into();
 
-                        let fat_storage = database.entry(address).or_insert(HashMap::new());
+                    let fat_storage = database.entry(address).or_insert(HashMap::new());
 
-                        for (key, value) in storage {
-                            if value == M256::zero() {
-                                fat_storage.remove(&key);
-                            } else {
-                                fat_storage.insert(key, value);
-                            }
+                    for (key, value) in storage {
+                        if value == M256::zero() {
+                            fat_storage.remove(&key);
+                        } else {
+                            fat_storage.insert(key, value);
                         }
                     }
                 },
+                AccountChange::Nonexist(address) => {
+                    database.remove(&address);
+                }
             }
         }
     }

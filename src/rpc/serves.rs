@@ -363,7 +363,7 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
             valid, HeaderParams::from(&block.header),
             &state.get_last_256_block_hashes());
 
-        Ok(Hex(vm.real_used_gas()))
+        Ok(Hex(vm.used_gas()))
     }
 
     fn block_by_hash(&self, hash: Hex<H256>, full: bool) -> Result<Option<RPCBlock>, Error> {
@@ -610,7 +610,7 @@ impl<P: 'static + Patch + Send> DebugRPC for MinerDebugRPC<P> {
 
         let (steps, vm) = replay_transaction::<P>(&stateful, transaction, &block, &last_hashes, &config)?;
 
-        let gas = Hex(vm.real_used_gas());
+        let gas = Hex(vm.used_gas());
         let return_value = Bytes(vm.out().into());
 
         Ok(RPCTrace {
