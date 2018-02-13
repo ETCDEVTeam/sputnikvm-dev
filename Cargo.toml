@@ -12,7 +12,6 @@ name = "svmdev"
 [dependencies]
 sputnikvm = "0.10"
 sputnikvm-stateful = "0.10"
-sputnikvm-network-classic = "0.10"
 clap = "2.26"
 secp256k1-plus = "0.5"
 rand = "0.3.1"
@@ -34,6 +33,13 @@ serde_derive = "1.0"
 log = "0.3"
 env_logger = "0.4"
 hyper = { version = "0.6.16", optional = true }
+
+sputnikvm-network-classic = "0.10"
+sputnikvm-network-foundation = "0.10"
+sputnikvm-network-ubiq = "0.10"
+sputnikvm-network-ellaism = "0.10"
+sputnikvm-network-expanse = "0.10"
+sputnikvm-network-musicoin = "0.10"
 
 [features]
 frontend = ["hyper"]
