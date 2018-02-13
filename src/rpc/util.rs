@@ -10,10 +10,11 @@ use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction, GlobalSignaturePatch, RlpHash};
 use blockchain::chain::HeaderHash;
-use sputnikvm::{ValidTransaction, VM, VMStatus, MachineStatus, HeaderParams, SeqTransactionVM, Patch, Memory};
+use sputnikvm::{ValidTransaction, VM, VMStatus, MachineStatus, HeaderParams, SeqTransactionVM, Patch, Memory, AccountChange};
 use sputnikvm_stateful::MemoryStateful;
 use std::str::FromStr;
 use std::collections::HashMap;
+use std::rc::Rc;
 use sha3::{Keccak256, Digest};
 
 use jsonrpc_macros::Trailing;
@@ -294,10 +295,10 @@ pub fn to_valid_transaction(state: &MinerState, transaction: RPCTransaction, sta
             Some(val) => val.0,
             None => U256::zero(),
         },
-        input: match transaction.data {
+        input: Rc::new(match transaction.data {
             Some(val) => val.0,
             None => Vec::new(),
-        },
+        }),
         caller: Some(address),
     };
 
@@ -356,7 +357,7 @@ pub fn replay_transaction<P: Patch>(
             VMStatus::ExitedNotSupported(_) => panic!(),
             VMStatus::Running => {
                 stateful.step(&mut vm, block.header.number, &last_hashes);
-                let gas = vm.real_used_gas();
+                let gas = vm.used_gas();
                 let gas_cost = gas - last_gas;
 
                 last_gas = gas;
@@ -395,11 +396,28 @@ pub fn replay_transaction<P: Patch>(
                     let storage = if config.disable_storage {
                         None
                     } else {
-                        let storage = machine.state().account_state.storage(
-                            machine.state().context.address);
+                        let mut for_storage = None;
+                        let context_address = machine.state().context.address;
 
+                        for account in machine.state().account_state.accounts() {
+                            match account {
+                                &AccountChange::Full { address, ref changing_storage, .. } => {
+                                    if address == context_address {
+                                        for_storage = Some(changing_storage.clone());
+                                    }
+                                },
+                                &AccountChange::Create { address, ref storage, .. } => {
+                                    if address == context_address {
+                                        for_storage = Some(storage.clone());
+                                    }
+                                },
+                                _ => (),
+                            }
+                        }
+
+                        let storage = for_storage;
                         let mut ret = HashMap::new();
-                        if let Ok(storage) = storage {
+                        if let Some(storage) = storage {
                             let storage: HashMap<U256, M256> = storage.clone().into();
                             for (key, value) in storage {
                                 ret.insert(Hex(key), Hex(value));

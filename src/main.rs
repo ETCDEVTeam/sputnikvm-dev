@@ -1,5 +1,6 @@
 extern crate sputnikvm;
 extern crate sputnikvm_stateful;
+extern crate sputnikvm_network_classic;
 extern crate secp256k1;
 extern crate rand;
 extern crate sha3;
@@ -46,7 +47,7 @@ use std::thread;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
-use sputnikvm::EIP160Patch;
+use sputnikvm_network_classic::MainnetEIP160Patch;
 
 fn main() {
     env_logger::init();
@@ -90,13 +91,13 @@ fn main() {
 
     let (sender, receiver) = channel::<bool>();
 
-    let state = miner::make_state::<EIP160Patch>(genesis);
+    let state = miner::make_state::<MainnetEIP160Patch>(genesis);
 
     let miner_arc = Arc::new(Mutex::new(state));
     let rpc_arc = miner_arc.clone();
 
     thread::spawn(move || {
-        miner::mine_loop::<EIP160Patch>(miner_arc, receiver);
+        miner::mine_loop::<MainnetEIP160Patch>(miner_arc, receiver);
     });
 
     #[cfg(feature = "frontend")]
@@ -134,7 +135,7 @@ fn main() {
         });
     }
 
-    rpc::rpc_loop::<EIP160Patch>(
+    rpc::rpc_loop::<MainnetEIP160Patch>(
         rpc_arc,
         &matches.value_of("LISTEN").unwrap_or("127.0.0.1:8545").parse().unwrap(),
         sender);

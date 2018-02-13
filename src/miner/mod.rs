@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
+use std::rc::Rc;
 use sputnikvm::{AccountChange, ValidTransaction, Patch, AccountCommitment, AccountState, HeaderParams, SeqTransactionVM, VM, VMStatus};
 use sputnikvm::errors::RequireError;
 use sputnikvm_stateful::MemoryStateful;
@@ -114,7 +115,7 @@ pub fn make_state<P: Patch>(genesis_accounts: Vec<(SecretKey, U256)>) -> MinerSt
                 gas_limit: Gas::from(100000usize),
                 action: TransactionAction::Call(address),
                 value: balance,
-                input: Vec::new(),
+                input: Rc::new(Vec::new()),
                 nonce: U256::zero(),
             }, HeaderParams::from(&genesis.header), &[]);
             let mut accounts = Vec::new();
@@ -182,7 +183,7 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
         };
 
         let logs: Vec<Log> = vm.logs().into();
-        let used_gas = vm.real_used_gas();
+        let used_gas = vm.used_gas();
         let mut logs_bloom = LogsBloom::new();
         for log in logs.clone() {
             logs_bloom.set(&log.address);
