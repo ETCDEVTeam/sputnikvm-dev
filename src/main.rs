@@ -1,5 +1,6 @@
 extern crate sputnikvm;
 extern crate sputnikvm_stateful;
+extern crate sputnikvm_network_classic;
 extern crate secp256k1;
 extern crate rand;
 extern crate sha3;
@@ -46,7 +47,7 @@ use std::thread;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, Receiver};
-use sputnikvm::MainnetEIP160Patch;
+use sputnikvm_network_classic::MainnetEIP160Patch;
 
 fn main() {
     env_logger::init();

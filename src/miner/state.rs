@@ -144,9 +144,6 @@ impl MinerState {
                 AccountChange::IncreaseBalance(address, _) => {
                     database.entry(address).or_insert(HashMap::new());
                 },
-                AccountChange::DecreaseBalance(address, _) => {
-                    database.entry(address).or_insert(HashMap::new());
-                },
                 AccountChange::Create {
                     address, storage, ..
                 } => {
