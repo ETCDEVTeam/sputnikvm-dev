@@ -10,7 +10,7 @@ use bigint::{M256, U256, H256, H2048, Address, Gas};
 use hexutil::{read_hex, to_hex};
 use block::{Block, TotalHeader, Account, Log, Receipt, FromKey, Transaction, UnsignedTransaction, TransactionAction, GlobalSignaturePatch, RlpHash};
 use blockchain::chain::HeaderHash;
-use sputnikvm::{ValidTransaction, VM, VMStatus, MachineStatus, HeaderParams, SeqTransactionVM, Patch, Memory, AccountChange};
+use sputnikvm::{ValidTransaction, UntrustedTransaction, VM, VMStatus, MachineStatus, HeaderParams, SeqTransactionVM, Patch, Memory, AccountChange, AccountCommitment};
 use sputnikvm_stateful::MemoryStateful;
 use std::str::FromStr;
 use std::collections::HashMap;
@@ -261,7 +261,7 @@ pub fn to_signed_transaction(state: &MinerState, transaction: RPCTransaction, st
     Ok(transaction)
 }
 
-pub fn to_valid_transaction(state: &MinerState, transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<ValidTransaction, Error> {
+pub fn to_valid_transaction<P: Patch>(state: &MinerState, transaction: RPCTransaction, stateful: &MemoryStateful) -> Result<ValidTransaction, Error> {
     let address = match transaction.from {
         Some(val) => val.0,
         None => Address::default(),
@@ -271,14 +271,26 @@ pub fn to_valid_transaction(state: &MinerState, transaction: RPCTransaction, sta
     let trie = stateful.state_of(block.header.state_root);
 
     let account: Option<Account> = trie.get(&address);
-
-    let valid = ValidTransaction {
-        nonce: match transaction.nonce {
-            Some(val) => val.0,
-            None => {
-                account.as_ref().map(|account| account.nonce).unwrap_or(U256::zero())
+    let commitment = match account {
+        Some(account) => {
+            let code = match stateful.code(account.code_hash) {
+                Some(code) => Rc::new(code),
+                None => return Err(Error::NotFound),
+            };
+            AccountCommitment::Full {
+                address,
+                nonce: account.nonce,
+                balance: account.balance,
+                code: code,
             }
         },
+        None => {
+            AccountCommitment::Nonexist(address)
+        },
+    };
+
+    let untrusted = UntrustedTransaction {
+        caller: commitment,
         gas_price: match transaction.gas_price {
             Some(val) => val.0,
             None => Gas::zero(),
@@ -299,8 +311,9 @@ pub fn to_valid_transaction(state: &MinerState, transaction: RPCTransaction, sta
             Some(val) => val.0,
             None => Vec::new(),
         }),
-        caller: Some(address),
     };
+
+    let valid = untrusted.to_valid::<P>()?;
 
     Ok(valid)
 }

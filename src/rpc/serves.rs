@@ -337,7 +337,7 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
 
         let stateful = state.stateful();
 
-        let valid = to_valid_transaction(&state, transaction, &stateful)?;
+        let valid = to_valid_transaction::<P>(&state, transaction, &stateful)?;
         let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
@@ -354,7 +354,7 @@ impl<P: 'static + Patch + Send> EthereumRPC for MinerEthereumRPC<P> {
 
         let stateful = state.stateful();
 
-        let valid = to_valid_transaction(&state, transaction, &stateful)?;
+        let valid = to_valid_transaction::<P>(&state, transaction, &stateful)?;
         let block = from_block_number(&state, block)?;
 
         let block = state.get_block_by_number(block);
