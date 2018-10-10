@@ -8,6 +8,7 @@ repository = "https://github.com/ethereumproject/etestrpc"
 
 [[bin]]
 name = "svmdev"
+path = "src/main.rs"
 
 [dependencies]
 sputnikvm = "0.10"

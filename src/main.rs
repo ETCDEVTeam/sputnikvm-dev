@@ -43,7 +43,7 @@ mod rpc;
 #[cfg(feature = "frontend")]
 mod assets;
 
-use miner::MinerState;
+use miner::{MinerState, MineMode};
 use rand::os::OsRng;
 use secp256k1::key::{PublicKey, SecretKey};
 use secp256k1::SECP256K1;
@@ -102,6 +102,7 @@ fn main() {
             (@arg LISTEN: -l --listen +takes_value "Listen address and port for the RPC, e.g. 127.0.0.1:8545.")
             (@arg ACCOUNTS: -a --accounts +takes_value "Additional accounts to be generated, default to 9.")
             (@arg CHAIN: -c --chain +takes_value "Specify the chain to use. Refer to the documentation for a full list of valid values.")
+            (@arg MINE_MODE: -m --minemode +takes_value "Specify the mining mode by number of transactions per block: [AllPending, OnePerBlock]")
     ).get_matches();
 
     match matches.value_of("CHAIN") {
@@ -167,6 +168,15 @@ fn with_patch<'a, P: 'static + Patch + Send>(matches: clap::ArgMatches<'a>) {
         None => 9,
     };
 
+    let mine_mode = match matches.value_of("MINE_MODE") {
+        Some(mode) => match mode.to_lowercase().as_ref() {
+            "allpending" => MineMode::AllPending,
+            "oneperblock" => MineMode::OnePerBlock,
+            other => panic!("MINE_MODE should be either AllPending or OnePerBlock, got {}", other),
+        },
+        None => MineMode::AllPending
+    };
+
     let mut genesis = Vec::new();
     genesis.push((secret_key, balance));
 
@@ -182,7 +192,7 @@ fn with_patch<'a, P: 'static + Patch + Send>(matches: clap::ArgMatches<'a>) {
     let rpc_arc = miner_arc.clone();
 
     thread::spawn(move || {
-        miner::mine_loop::<P>(miner_arc, receiver);
+        miner::mine_loop::<P>(miner_arc, receiver, mine_mode);
     });
 
     #[cfg(feature = "frontend")]

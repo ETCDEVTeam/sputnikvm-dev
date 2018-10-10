@@ -146,19 +146,39 @@ pub fn make_state<P: Patch>(genesis_accounts: Vec<(SecretKey, U256)>) -> MinerSt
     state
 }
 
-pub fn mine_loop<P: Patch>(state: Arc<Mutex<MinerState>>, channel: Receiver<bool>) {
+#[derive(Debug, Copy, Clone)]
+pub enum MineMode {
+    AllPending,
+    OnePerBlock
+}
+
+pub fn mine_loop<P: Patch>(state: Arc<Mutex<MinerState>>, channel: Receiver<bool>, mode: MineMode) {
     loop {
-        mine_one::<P>(state.clone(), Address::default());
+        match mode {
+            MineMode::AllPending => mine_all_pending::<P>(state.clone(), Address::default()),
+            MineMode::OnePerBlock => mine_one_tx_per_block::<P>(state.clone(), Address::default()),
+        }
 
         channel.recv_timeout(Duration::new(10, 0));
     }
 }
 
-pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
+pub fn mine_all_pending<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
     let mut state = state.lock().unwrap();
-
-    let current_block = state.current_block();
     let transactions = state.clear_pending_transactions();
+    mine_transactions::<P>(&mut state, address, &transactions)
+}
+
+pub fn mine_one_tx_per_block<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
+    let mut state = state.lock().unwrap();
+    let transactions = state.clear_pending_transactions();
+    for transaction in transactions {
+        mine_transactions::<P>(&mut state, address, &[transaction])
+    }
+}
+
+pub fn mine_transactions<P: Patch>(state: &mut MinerState, address: Address, transactions: &[Transaction]) {
+    let current_block = state.current_block();
     let block_hashes = state.get_last_256_block_hashes();
 
     let beneficiary = address;
@@ -167,12 +187,12 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
 
     state.fat_transit(current_block.header.number.as_usize(), &[]);
 
-    for transaction in transactions.clone() {
+    for transaction in transactions.iter().cloned() {
         let transaction_hash = transaction.rlp_hash();
         let valid = state.stateful_mut().to_valid::<P>(transaction).unwrap();
         let vm: SeqTransactionVM<P> = {
             let vm = state.stateful_mut().call(valid, HeaderParams::from(&current_block.header),
-                               &block_hashes);
+                                               &block_hashes);
             let mut accounts = Vec::new();
             for account in vm.accounts() {
                 accounts.push(account.clone());
@@ -212,7 +232,7 @@ pub fn mine_one<P: Patch>(state: Arc<Mutex<MinerState>>, address: Address) {
     }
 
     let root = state.stateful_mut().root();
-    let next_block = next(&mut state, &current_block, transactions.as_ref(), receipts.as_ref(),
+    let next_block = next(state, &current_block, transactions.as_ref(), receipts.as_ref(),
                           beneficiary, Gas::from_str("0x10000000000000000000000").unwrap(),
                           root);
     debug!("block number: 0x{:x}", next_block.header.number);
