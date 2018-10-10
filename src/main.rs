@@ -94,7 +94,7 @@ fn main() {
 
     let matches = clap_app!(
         svmdev =>
-            (version: "0.1")
+            (version: env!("CARGO_PKG_VERSION"))
             (author: "Ethereum Classic Contributors")
             (about: "SputnikVM Development Environment, a replacement for ethereumjs-testrpc.")
             (@arg PRIVATE_KEY: -k --private +takes_value "Private key for the account to be generated, if not provided, a random private key will be generated.")
