@@ -9,6 +9,10 @@ Development environment based on SputnikVM and etcommon.
 You can either download `svmdev` from the release page, or build it by yourself by installing Rust, and run `cargo run`. We currently support Linux and MacOS, and Windows.
 
 ```
+svmdev 0.2.1
+Ethereum Classic Contributors
+SputnikVM Development Environment, a replacement for ethereumjs-testrpc.
+
 USAGE:
     svmdev [OPTIONS]
 
@@ -19,7 +23,9 @@ FLAGS:
 OPTIONS:
     -a, --accounts <ACCOUNTS>      Additional accounts to be generated, default to 9.
     -b, --balance <BALANCE>        Balance in Wei for the account to be generated, default is 0x10000000000000000000000000000.
+    -c, --chain <CHAIN>            Specify the chain to use. Refer to the documentation for a full list of valid values.
     -l, --listen <LISTEN>          Listen address and port for the RPC, e.g. 127.0.0.1:8545.
+    -m, --minemode <MINE_MODE>     Specify the mining mode by number of transactions per block: [AllPending, OnePerBlock]
     -k, --private <PRIVATE_KEY>    Private key for the account to be generated, if not provided, a random private key will be generated.
 ```
 
